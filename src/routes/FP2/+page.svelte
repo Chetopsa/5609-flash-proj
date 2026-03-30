@@ -293,7 +293,7 @@
       errorMsg = "";
   
       try {
-        const csvUrl = "/fp-dataset.csv";
+        const csvUrl = "/running-races.csv";
   
         const parsed = await d3.dsv(";", csvUrl, (row) => {
           const athlete = (row["athlete"] ?? "").trim();

@@ -21,3 +21,13 @@ export type TMovie_A2 = {
     primary_title: string;
     original_title: string;
 }
+
+export type TRun = {
+    tier: string;
+    year_month: Date;
+    median_pace: number;
+    p25: number;
+    p75: number;
+    run_count: number;
+    avg_runs_per_athlete: number;
+}

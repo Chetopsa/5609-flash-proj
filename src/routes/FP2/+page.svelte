@@ -39,6 +39,7 @@
 
   let selectedMetric: "pace" | "hr" = $state("pace");
   let selectedRunner = $state("");
+  let useSmoothing = $state(true);
 
   const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
@@ -85,6 +86,21 @@
     return "Outliers";
   }
 
+  function smoothSeries(values: LinePoint[], windowSize = 5): LinePoint[] {
+    return values.map((d, i, arr) => {
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(arr.length, i + Math.floor(windowSize / 2) + 1);
+      const window = arr.slice(start, end);
+
+      const avg = d3.mean(window, (p) => p.value) ?? d.value;
+
+      return {
+        x: d.x,
+        value: avg
+      };
+    });
+  }
+
   function buildPercentileGroupSeries(
     allRuns: TRun[],
     metric: "pace" | "hr"
@@ -122,16 +138,20 @@
     const desiredOrder = ["10th percentile", "50th percentile", "90th percentile"];
 
     return grouped
-      .map(([groupLabel, runEntries]) => ({
-        label: groupLabel,
-        values: runEntries
+      .map(([groupLabel, runEntries]) => {
+        const rawValues = runEntries
           .filter(([, value]) => value !== undefined && Number.isFinite(value))
           .map(([runNumber, value]) => ({
             x: Number(runNumber),
             value: value as number
           }))
-          .sort((a, b) => a.x - b.x)
-      }))
+          .sort((a, b) => a.x - b.x);
+
+        return {
+          label: groupLabel,
+          values: useSmoothing ? smoothSeries(rawValues, 5) : rawValues
+        };
+      })
       .filter((series) => series.label !== "Outliers")
       .filter((series) => series.values.length > 1)
       .sort((a, b) => desiredOrder.indexOf(a.label) - desiredOrder.indexOf(b.label));
@@ -279,18 +299,43 @@
       : "This chart shows how a particular runner’s heart rate changes across their runs."
   );
 
+  $effect(() => {
+    if (runs.length) {
+      groupPaceSeries = buildPercentileGroupSeries(runs, "pace");
+      groupHrSeries = buildPercentileGroupSeries(runs, "hr");
+    }
+  });
+
   onMount(loadCsv);
 </script>
 
 <div class="container">
-  <h1>Finding 3: Pace and Heart Rate Trends</h1>
+  <h1>Finding 3: Pace and Heart Rate Trends by Percentile Group</h1>
 
   <p class="description">
     This visualization compares runners based on percentile of average runs per week.
     The top chart shows average pace or heart rate trends for runners near the 10th,
     50th, and 90th percentiles of run frequency. The supplemental chart below
-    shows each individual runner’s trend.
+    shows a selected runner’s trend over time.
   </p>
+
+  <p class="description">
+    For each run, it's averaged with nearby runs to reduce sudden jumps and make the overall trend easier to see.
+    Use the checkbox to compare before and after the lines are smoothed.
+  </p>
+
+  <div class="controls">
+    <label for="metric-select">Metric:</label>
+    <select id="metric-select" bind:value={selectedMetric}>
+      <option value="pace">Pace</option>
+      <option value="hr">Heart Rate</option>
+    </select>
+
+    <label class="checkbox">
+      <input type="checkbox" bind:checked={useSmoothing} />
+      Smooth lines
+    </label>
+  </div>
 
   {#if loading}
     <p>Loading data...</p>
@@ -299,14 +344,6 @@
   {:else if displayedGroupSeries.length === 0}
     <p>No processed data available.</p>
   {:else}
-    <div class="controls">
-      <label for="metric-select">Metric:</label>
-      <select id="metric-select" bind:value={selectedMetric}>
-        <option value="pace">Pace</option>
-        <option value="hr">Heart Rate</option>
-      </select>
-    </div>
-
     <Multiline2
       series={displayedGroupSeries}
       width={980}
@@ -337,7 +374,7 @@
           yLabel={individualYLabel}
           note={individualNote}
           metric={selectedMetric}
-          legendTitle="Runner Group"
+          legendTitle="Runner"
         />
       </div>
     {/if}
@@ -351,22 +388,18 @@
     padding: 20px 0 40px 0;
   }
 
-  .description,
-  .instructions {
+  .description {
     max-width: 900px;
     line-height: 1.5;
-  }
-
-  .instructions {
-    margin-bottom: 18px;
-    font-size: 0.96rem;
+    margin-bottom: 12px;
   }
 
   .controls {
     margin: 16px 0 18px 0;
     display: flex;
-    gap: 10px;
+    gap: 16px;
     align-items: center;
+    flex-wrap: wrap;
   }
 
   .supplemental-controls {
@@ -375,6 +408,12 @@
 
   .supplemental {
     margin-top: 20px;
+  }
+
+  .checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   select {

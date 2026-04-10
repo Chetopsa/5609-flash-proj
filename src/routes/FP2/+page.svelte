@@ -283,7 +283,7 @@
 </script>
 
 <div class="container">
-  <h1>Finding 3: Pace and Heart Rate Trends by Percentile Group</h1>
+  <h1>Finding 3: Pace and Heart Rate Trends</h1>
 
   <p class="description">
     This visualization compares runners based on percentile of average runs per week.

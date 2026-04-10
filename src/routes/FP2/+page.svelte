@@ -310,13 +310,12 @@
 </script>
 
 <div class="container">
-  <h1>Finding 3: Pace and Heart Rate Trends by Percentile Group</h1>
+  <h1>Finding 3: Pace and Heart Rate Trends</h1>
 
   <p class="description">
     This visualization compares runners based on percentile of average runs per week.
-    The top chart shows average pace or heart rate trends for runners near the 10th,
-    50th, and 90th percentiles of run frequency. The supplemental chart below
-    shows a selected runner’s trend over time.
+    The top chart shows average pace or heart rate trends for runners for the 10th,
+    50th, and 90th percentiles. The supplemental chart below shows each individual runner’s trend.
   </p>
 
   <p class="description">

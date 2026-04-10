@@ -172,8 +172,8 @@
           }
           opacity={
             focusLabel
-              ? (focusLabel === s.label ? 1 : 0.18)
-              : (s.label.includes("Outliers") ? 0.4 : 0.95)
+              ? (focusLabel === s.label ? 1 : 0.08)
+              : (s.label.includes("Outliers") ? 0.35 : 0.8)
           }
         />
       {/each}

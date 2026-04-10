@@ -321,7 +321,7 @@
 
   <p class="description">
     For each run, it's averaged with nearby runs to reduce sudden jumps and make the overall trend easier to see.
-    Use the checkbox to compare before and after the lines are smoothed.
+    Use the checkbox to see before and after the lines are smoothed.
   </p>
 
   <div class="controls">

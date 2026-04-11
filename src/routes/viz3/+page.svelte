@@ -1,24 +1,16 @@
 <script lang="ts">
   import * as d3 from "d3";
   import { onMount } from "svelte";
-  import Multiline2 from "$lib/Multiline2.svelte";
+  import Elevation from "$lib/Elevation.svelte";
 
   type TRun = {
     athlete: string;
-    gender: string;
     timestamp: Date;
-    distance_m: number;
-    elapsed_s: number;
     elev_gain_m: number;
     avg_hr_bpm: number | null;
-    speed_kmh: number;
-    climb_efficiency: number;
-    efficiency: number;
-    year_week: string;
-    percentile_avg_runs_week: number;
-    avg_runs_per_week: number;
-    runNumber: number;
     pace_min_km: number;
+    elevation_group: string;
+    runNumber: number;
   };
 
   type LinePoint = {
@@ -34,6 +26,7 @@
   let runs: TRun[] = $state([]);
   let groupPaceSeries: Series[] = $state([]);
   let groupHrSeries: Series[] = $state([]);
+
   let loading = $state(true);
   let errorMsg = $state("");
 
@@ -41,7 +34,34 @@
   let selectedRunner = $state("");
   let useSmoothing = $state(true);
 
+  // NEW: interactive run cap
+  let maxRunNumber = $state(120);
+
   const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+  
+  const percentileOrder = [
+    "10th percentile (Low)",
+    "50th percentile (Medium)",
+    "90th percentile (High)"
+  ];
+
+  const groupDisplayMap = {
+    "90th percentile": "High",
+    "50th percentile": "Medium",
+    "10th percentile": "Low"
+  };
+
+  const groupSortOrder = {
+    "90th percentile": 0,
+    "50th percentile": 1,
+    "10th percentile": 2
+  };
+
+  const groupLabelMap = {
+    "10th percentile": "10th percentile (Low)",
+    "50th percentile": "50th percentile (Medium)",
+    "90th percentile": "90th percentile (High)"
+  };
 
   function addRunNumber(allRuns: TRun[]): TRun[] {
     const grouped = d3.group(allRuns, (d) => d.athlete);
@@ -63,27 +83,21 @@
     return result;
   }
 
+  function normalizeElevationGroup(group: string): string {
+    return group.trim();
+  }
+
   function getBaseFilteredRuns(allRuns: TRun[]): TRun[] {
     return allRuns.filter((d) => {
       return (
         d.athlete &&
+        d.elevation_group &&
         d.timestamp instanceof Date &&
         !Number.isNaN(d.timestamp.getTime()) &&
-        Number.isFinite(d.distance_m) &&
-        Number.isFinite(d.elapsed_s) &&
-        Number.isFinite(d.percentile_avg_runs_week) &&
         Number.isFinite(d.runNumber) &&
-        d.distance_m > 0 &&
-        d.elapsed_s > 0
+        Number.isFinite(d.pace_min_km)
       );
     });
-  }
-
-  function getPercentileGroup(percentile: number): string {
-    if (Math.abs(percentile - 0.10) <= 0.03) return "10th percentile";
-    if (Math.abs(percentile - 0.50) <= 0.03) return "50th percentile";
-    if (Math.abs(percentile - 0.90) <= 0.03) return "90th percentile";
-    return "Outliers";
   }
 
   function smoothSeries(values: LinePoint[], windowSize = 5): LinePoint[] {
@@ -92,20 +106,20 @@
       const end = Math.min(arr.length, i + Math.floor(windowSize / 2) + 1);
       const window = arr.slice(start, end);
 
-      const avg = d3.mean(window, (p) => p.value) ?? d.value;
-
       return {
         x: d.x,
-        value: avg
+        value: d3.mean(window, (p) => p.value) ?? d.value
       };
     });
   }
 
-  function buildPercentileGroupSeries(
+  function buildElevationGroupSeries(
     allRuns: TRun[],
     metric: "pace" | "hr"
   ): Series[] {
-    let filtered = getBaseFilteredRuns(allRuns);
+    let filtered = getBaseFilteredRuns(allRuns).filter(
+      (d) => d.runNumber <= maxRunNumber
+    );
 
     if (metric === "pace") {
       filtered = filtered.filter(
@@ -117,25 +131,16 @@
       );
     }
 
-    const withGroup = filtered
-      .filter((d) => d.runNumber <= 120)
-      .map((d) => ({
-        ...d,
-        percentileGroup: getPercentileGroup(d.percentile_avg_runs_week)
-      }));
-
     const grouped = d3.rollups(
-      withGroup,
+      filtered,
       (groupRuns) =>
         d3.mean(
           groupRuns,
           (d) => (metric === "pace" ? d.pace_min_km : (d.avg_hr_bpm as number))
         ),
-      (d) => d.percentileGroup,
+      (d) => d.elevation_group,
       (d) => d.runNumber
     );
-
-    const desiredOrder = ["10th percentile", "50th percentile", "90th percentile"];
 
     return grouped
       .map(([groupLabel, runEntries]) => {
@@ -148,50 +153,37 @@
           .sort((a, b) => a.x - b.x);
 
         return {
-          label: groupLabel,
+          label: groupLabelMap[groupLabel as keyof typeof groupLabelMap] ?? groupLabel,
           values: useSmoothing ? smoothSeries(rawValues, 5) : rawValues
         };
       })
-      .filter((series) => series.label !== "Outliers")
       .filter((series) => series.values.length > 1)
-      .sort((a, b) => desiredOrder.indexOf(a.label) - desiredOrder.indexOf(b.label));
+      .sort(
+        (a, b) =>
+          percentileOrder.indexOf(a.label) - percentileOrder.indexOf(b.label)
+      );
   }
 
-  function buildIndividualSeries(
+  function buildIndividualElevationSeries(
     allRuns: TRun[],
-    metric: "pace" | "hr",
     athleteId: string
   ): Series[] {
     if (!athleteId) return [];
 
-    let filtered = getBaseFilteredRuns(allRuns).filter((d) => d.athlete === athleteId);
-
-    if (metric === "pace") {
-      filtered = filtered.filter(
-        (d) => Number.isFinite(d.pace_min_km) && d.pace_min_km < 15
-      );
-    } else {
-      filtered = filtered.filter(
-        (d) => d.avg_hr_bpm !== null && Number.isFinite(d.avg_hr_bpm)
-      );
-    }
-
-    filtered = filtered
-      .filter((d) => d.runNumber <= 120)
+    const filtered = getBaseFilteredRuns(allRuns)
+      .filter((d) => d.athlete === athleteId)
+      .filter((d) => Number.isFinite(d.elev_gain_m))
+      .filter((d) => d.runNumber <= maxRunNumber)
       .sort((a, b) => a.runNumber - b.runNumber);
 
     if (filtered.length <= 1) return [];
 
-    const avgPercentile =
-      d3.mean(filtered, (d) => d.percentile_avg_runs_week) ?? NaN;
-    const groupLabel = getPercentileGroup(avgPercentile);
-
     return [
       {
-        label: `${groupLabel}: ${athleteId}`,
+        label: athleteId,
         values: filtered.map((d) => ({
           x: d.runNumber,
-          value: metric === "pace" ? d.pace_min_km : (d.avg_hr_bpm as number)
+          value: d.elev_gain_m
         }))
       }
     ];
@@ -202,11 +194,10 @@
     errorMsg = "";
 
     try {
-      const csvUrl = "/annotated-running-races.csv";
+      const csvUrl = "/annotated-running-races-with-elevation.csv";
 
       const parsed = await d3.csv(csvUrl, (row) => {
         const athlete = (row["athlete"] ?? "").trim();
-        const gender = (row["gender"] ?? "").trim();
         const timestampRaw = (row["timestamp"] ?? "").trim();
         const timestamp = parseTime(timestampRaw);
 
@@ -223,27 +214,19 @@
 
         return {
           athlete,
-          gender,
           timestamp: timestamp ?? new Date("invalid"),
-          distance_m,
-          elapsed_s,
           elev_gain_m,
           avg_hr_bpm,
-          speed_kmh: Number(row["speed (km/hour)"]),
-          climb_efficiency: Number(row["climb efficiency"]),
-          efficiency: Number(row["efficiency"]),
-          year_week: (row["year_week"] ?? "").trim(),
-          percentile_avg_runs_week: Number(row["percentile_avg_runs_week"]),
-          avg_runs_per_week: Number(row["avg_runs_per_week"]),
-          runNumber: 0,
-          pace_min_km
+          pace_min_km,
+          elevation_group: normalizeElevationGroup(row["elevation_group"] ?? ""),
+          runNumber: 0
         } as TRun;
       });
 
       runs = addRunNumber(parsed.filter(Boolean) as TRun[]);
 
-      groupPaceSeries = buildPercentileGroupSeries(runs, "pace");
-      groupHrSeries = buildPercentileGroupSeries(runs, "hr");
+      groupPaceSeries = buildElevationGroupSeries(runs, "pace");
+      groupHrSeries = buildElevationGroupSeries(runs, "hr");
 
       const athletes = [...new Set(runs.map((d) => d.athlete).filter(Boolean))].sort();
       selectedRunner = athletes[0] ?? "";
@@ -255,8 +238,29 @@
     }
   }
 
+  function handleRunSlider(event: Event) {
+    maxRunNumber = Number((event.target as HTMLInputElement).value);
+  }
+
   const runnerOptions = $derived(
-    [...new Set(runs.map((d) => d.athlete).filter(Boolean))].sort()
+    [...new Set(runs.map((d) => d.athlete).filter(Boolean))]
+      .map((athlete) => {
+        const athleteRuns = runs.filter((d) => d.athlete === athlete);
+        const runner = athleteRuns[0];
+
+        return {
+          athlete,
+          group: runner?.elevation_group ?? ""
+        };
+      })
+      .sort((a, b) => {
+        const groupDiff =
+          (groupSortOrder[a.group as keyof typeof groupSortOrder] ?? 99) -
+          (groupSortOrder[b.group as keyof typeof groupSortOrder] ?? 99);
+
+        if (groupDiff !== 0) return groupDiff;
+        return a.athlete.localeCompare(b.athlete);
+      })
   );
 
   const displayedGroupSeries = $derived(
@@ -264,13 +268,22 @@
   );
 
   const displayedIndividualSeries = $derived(
-    buildIndividualSeries(runs, selectedMetric, selectedRunner)
+    buildIndividualElevationSeries(runs, selectedRunner)
+  );
+
+  const selectedRunnerTotalRuns = $derived(
+    runs.filter(
+      (d) =>
+        d.athlete === selectedRunner &&
+        Number.isFinite(d.elev_gain_m) &&
+        d.runNumber <= maxRunNumber
+    ).length
   );
 
   const mainTitle = $derived(
     selectedMetric === "pace"
-      ? "Pace over Run Number by Percentile Group"
-      : "Heart Rate over Run Number by Percentile Group"
+      ? "Pace over Run Number"
+      : "Heart Rate over Run Number"
   );
 
   const mainYLabel = $derived(
@@ -279,30 +292,26 @@
 
   const mainNote = $derived(
     selectedMetric === "pace"
-      ? "Each line shows the average pace at each run number for the 10th, 50th, and 90th percentile groups. Lower values indicate faster pace."
-      : "Each line shows the average heart rate at each run number for the 10th, 50th, and 90th percentile groups."
+      ? `Each line shows the average pace at each run number for the 10th, 50th, and 90th percentile elevation groups. Lower values indicate faster pace.`
+      : `Each line shows the average heart rate at each run number for the 10th, 50th, and 90th percentile elevation groups.`
   );
 
   const individualTitle = $derived(
-    selectedMetric === "pace"
-      ? "Individual Runner Pace over Run Number"
-      : "Individual Runner Heart Rate over Run Number"
+    "Individual Runner Elevation Gain over Run Number"
   );
 
   const individualYLabel = $derived(
-    selectedMetric === "pace" ? "Pace (min/km)" : "Heart Rate (bpm)"
+    "Elevation Gain (m)"
   );
 
   const individualNote = $derived(
-    selectedMetric === "pace"
-      ? "This chart shows how a particular runner’s pace changes across their runs."
-      : "This chart shows how a particular runner’s heart rate changes across their runs."
+    `This chart shows how a selected runner’s elevation gain changes across runs 1–${maxRunNumber}.`
   );
 
   $effect(() => {
     if (runs.length) {
-      groupPaceSeries = buildPercentileGroupSeries(runs, "pace");
-      groupHrSeries = buildPercentileGroupSeries(runs, "hr");
+      groupPaceSeries = buildElevationGroupSeries(runs, "pace");
+      groupHrSeries = buildElevationGroupSeries(runs, "hr");
     }
   });
 
@@ -310,17 +319,12 @@
 </script>
 
 <div class="container">
-  <h1>Finding 3: Pace and Heart Rate Trends</h1>
+  <h1>How does elevation affect heart rate and pace?</h1>
 
   <p class="description">
-    This visualization compares runners based on percentile of average runs per week.
-    The top chart shows average pace or heart rate trends for runners for the 10th,
-    50th, and 90th percentiles. The supplemental chart below shows each individual runner’s trend.
-  </p>
-
-  <p class="description">
-    For each run, it's averaged with nearby runs to reduce sudden jumps and make the overall trend easier to see.
-    Use the checkbox to see before and after the lines are smoothed.
+    The top chart shows average pace or heart rate trends over run number for the 10th, 50th, and 90th percentile
+    elevation groups. The supplemental chart below shows how each individual runner’s elevation gain
+    changes over their runs. The group lines can be smoothed to reduce noise and make trends easier to compare.
   </p>
 
   <div class="controls">
@@ -336,6 +340,19 @@
     </label>
   </div>
 
+  <div class="controls run-slider-row">
+    <label for="run-slider">Runs 1 to <strong>{maxRunNumber}</strong></label>
+    <input
+      id="run-slider"
+      type="range"
+      min="10"
+      max="500"
+      step="10"
+      value={maxRunNumber}
+      on:input={handleRunSlider}
+    />
+  </div>
+
   {#if loading}
     <p>Loading data...</p>
   {:else if errorMsg}
@@ -343,7 +360,7 @@
   {:else if displayedGroupSeries.length === 0}
     <p>No processed data available.</p>
   {:else}
-    <Multiline2
+    <Elevation
       series={displayedGroupSeries}
       width={980}
       height={520}
@@ -351,29 +368,32 @@
       yLabel={mainYLabel}
       note={mainNote}
       metric={selectedMetric}
-      legendTitle="Percentile Groups"
+      legendTitle="Elevation Groups"
     />
 
     <div class="controls supplemental-controls">
       <label for="runner-select">Runner:</label>
       <select id="runner-select" bind:value={selectedRunner}>
         {#each runnerOptions as runner}
-          <option value={runner}>{runner}</option>
+          <option value={runner.athlete}>
+            #{runner.athlete} · {runner.group} ({groupDisplayMap[runner.group as keyof typeof groupDisplayMap]})
+          </option>
         {/each}
       </select>
     </div>
 
     {#if displayedIndividualSeries.length > 0}
       <div class="supplemental">
-        <Multiline2
+        <Elevation
           series={displayedIndividualSeries}
           width={980}
           height={520}
           title={individualTitle}
           yLabel={individualYLabel}
           note={individualNote}
-          metric={selectedMetric}
+          metric="elevation"
           legendTitle="Runner"
+          totalRuns={selectedRunnerTotalRuns}
         />
       </div>
     {/if}
@@ -385,6 +405,12 @@
     width: min(1100px, 92vw);
     margin: 0 auto;
     padding: 20px 0 40px 0;
+  }
+
+  .subtitle {
+    margin-top: 0;
+    margin-bottom: 14px;
+    color: #555;
   }
 
   .description {
@@ -399,6 +425,11 @@
     gap: 16px;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  .run-slider-row input[type="range"] {
+    width: 220px;
+    max-width: 100%;
   }
 
   .supplemental-controls {

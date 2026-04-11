@@ -11,6 +11,8 @@
     values: LinePoint[];
   };
 
+  type MetricType = "pace" | "hr" | "elevation";
+
   type Props = {
     series: Series[];
     width?: number;
@@ -18,8 +20,9 @@
     title?: string;
     yLabel?: string;
     note?: string;
-    metric?: "pace" | "hr";
+    metric?: MetricType;
     legendTitle?: string;
+    totalRuns?: number;
   };
 
   const props = $props<Props>();
@@ -32,6 +35,7 @@
   const note = $derived(props.note ?? "");
   const metric = $derived(props.metric ?? "pace");
   const legendTitle = $derived(props.legendTitle ?? "Legend");
+  const totalRuns = $derived(props.totalRuns ?? null);
 
   const margin = { top: 35, right: 250, bottom: 70, left: 85 };
 
@@ -48,31 +52,22 @@
   const labels = $derived(series.map((s) => s.label));
 
   function getSeriesColor(label: string): string {
-    if (label.includes("10th percentile")) return "#4C72B0"; // blue
-    if (label.includes("50th percentile")) return "#55A868"; // green
-    if (label.includes("90th percentile")) return "#C44E52"; // red
-    if (label.includes("Outliers")) return "#888888";        // darker gray
-    return "#8172B3"; 
+    if (label.includes("10th percentile")) return "#4C72B0";
+    if (label.includes("50th percentile")) return "#55A868";
+    if (label.includes("90th percentile")) return "#C44E52";
+    return "#333";
   }
 
   const xScale = $derived(
     d3.scaleLinear()
-      .domain(
-        allX.length
-          ? [d3.min(allX)!, d3.max(allX)!]
-          : [0, 1]
-      )
+      .domain(allX.length ? [d3.min(allX)!, d3.max(allX)!] : [0, 1])
       .nice()
       .range([usable.left, usable.right])
   );
 
   const yScale = $derived(
     d3.scaleLinear()
-      .domain(
-        allValues.length
-          ? [d3.min(allValues)!, d3.max(allValues)!]
-          : [0, 1]
-      )
+      .domain(allValues.length ? [d3.min(allValues)!, d3.max(allValues)!] : [0, 1])
       .nice()
       .range([usable.bottom, usable.top])
   );
@@ -102,37 +97,78 @@
     if (xAxis && yAxis && series.length) updateAxis();
   });
 
-  let focusLabel: string | null = $state(null);
-  let hoveredPoint: { label: string; x: number; value: number } | null = $state(null);
+  const unitText = $derived(
+    metric === "pace" ? "min/km" :
+    metric === "hr" ? "bpm" :
+    "m"
+  );
+
+  let hoverX = $state<number | null>(null);
   let tooltipX = $state(0);
   let tooltipY = $state(0);
 
-  function onSeriesHover(label: string, point: LinePoint, event: MouseEvent) {
-    focusLabel = label;
-    hoveredPoint = {
-      label,
-      x: point.x,
-      value: point.value
-    };
-
+  function handleSvgMouseMove(event: MouseEvent) {
     if (!svgEl) return;
+
     const [mx, my] = d3.pointer(event, svgEl);
+
+    if (
+      mx < usable.left ||
+      mx > usable.right ||
+      my < usable.top ||
+      my > usable.bottom
+    ) {
+      hoverX = null;
+      return;
+    }
+
+    hoverX = mx;
     tooltipX = mx;
     tooltipY = my;
   }
 
   function clearHover() {
-    focusLabel = null;
-    hoveredPoint = null;
+    hoverX = null;
   }
 
-  const unitText = $derived(metric === "pace" ? "min/km" : "bpm");
+  const hoverRun = $derived(
+    hoverX !== null ? Math.round(xScale.invert(hoverX)) : null
+  );
+
+  function getClosestPoint(points: LinePoint[], run: number): LinePoint | null {
+    if (!points.length) return null;
+
+    return points.reduce((best, current) => {
+      return Math.abs(current.x - run) < Math.abs(best.x - run) ? current : best;
+    });
+  }
+
+  const hoverData = $derived(
+    hoverRun === null
+      ? []
+      : series
+          .map((s) => ({
+            label: s.label,
+            point: getClosestPoint(s.values, hoverRun)
+          }))
+          .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
+  );
+
+  const focusLabel = $derived(
+    hoverData.length === 1 ? hoverData[0].label : null
+  );
 </script>
 
 <h3>{title}</h3>
 
 {#if series.length}
-  <svg bind:this={svgEl} {width} {height}>
+  <svg
+    bind:this={svgEl}
+    {width}
+    {height}
+    onmousemove={handleSvgMouseMove}
+    onmouseleave={clearHover}
+  >
     <g class="grid">
       {#each yScale.ticks(6) as tick}
         <line
@@ -165,16 +201,8 @@
           d={lineGen(s.values) ?? ""}
           fill="none"
           stroke={getSeriesColor(s.label)}
-          stroke-width={
-            focusLabel === s.label
-              ? 3.6
-              : (s.label.includes("Outliers") ? 2.2 : 1.8)
-          }
-          opacity={
-            focusLabel
-              ? (focusLabel === s.label ? 1 : 0.08)
-              : (s.label.includes("Outliers") ? 0.35 : 0.8)
-          }
+          stroke-width={focusLabel === s.label ? 3.2 : 2}
+          opacity={hoverRun !== null ? 0.78 : 0.85}
         />
       {/each}
     </g>
@@ -185,23 +213,39 @@
           <circle
             cx={xScale(v.x)}
             cy={yScale(v.value)}
-            r={focusLabel === s.label ? 3 : 2}
+            r="2"
             fill={getSeriesColor(s.label)}
             stroke={getSeriesColor(s.label)}
             stroke-width="1"
-            opacity={
-              focusLabel
-                ? (focusLabel === s.label ? 1 : 0.18)
-                : (s.label.includes("Outliers") ? 0.45 : 0.9)
-            }
-            onmouseover={(event) => onSeriesHover(s.label, v, event)}
-            onfocus={(event) => onSeriesHover(s.label, v, event as unknown as MouseEvent)}
-            onmouseout={clearHover}
-            onblur={clearHover}
+            opacity="0.55"
           />
         {/each}
       {/each}
     </g>
+
+    {#if hoverRun !== null && hoverData.length > 0}
+      <line
+        x1={xScale(hoverRun)}
+        x2={xScale(hoverRun)}
+        y1={usable.top}
+        y2={usable.bottom}
+        stroke="#888"
+        stroke-width="1"
+        stroke-dasharray="4,4"
+        opacity="0.8"
+      />
+
+      {#each hoverData as d}
+        <circle
+          cx={xScale(d.point.x)}
+          cy={yScale(d.point.value)}
+          r="4"
+          fill={getSeriesColor(d.label)}
+          stroke="white"
+          stroke-width="1.5"
+        />
+      {/each}
+    {/if}
 
     <g transform={`translate(0, ${usable.bottom})`} bind:this={xAxis} />
     <g transform={`translate(${usable.left}, 0)`} bind:this={yAxis} />
@@ -235,33 +279,72 @@
       <text x="0" y="0" font-size="12" font-weight="600">{legendTitle}</text>
 
       {#each labels as label, i (label)}
-        <rect x="0" y={14 + i * 22} width="12" height="12" fill={getSeriesColor(label)} />
+        <rect
+          x="0"
+          y={14 + i * 22}
+          width="12"
+          height="12"
+          fill={getSeriesColor(label)}
+        />
         <text x="18" y={24 + i * 22} font-size="12">{label}</text>
       {/each}
+
+      {#if totalRuns !== null}
+        <text
+          x="0"
+          y={14 + labels.length * 22 + 10}
+          font-size="12"
+          font-weight="500"
+          fill="#666"
+        >
+          Total runs: {totalRuns}
+        </text>
+      {/if}
     </g>
 
-    {#if hoveredPoint}
-      {@const boxX = Math.min(tooltipX + 12, width - 260)}
-      {@const boxY = Math.max(tooltipY - 60, 12)}
+    {#if hoverRun !== null && hoverData.length > 0}
+      {@const boxX = Math.min(xScale(hoverRun) + 14, width - 280)}
+      {@const boxY = usable.top + 20}
+      {@const boxHeight = 34 + hoverData.length * 22}
+
       <g class="tooltip" pointer-events="none">
         <rect
           x={boxX}
           y={boxY}
-          width="245"
-          height="74"
+          width="260"
+          height={boxHeight}
           rx="8"
           fill="white"
-          stroke={getSeriesColor(hoveredPoint.label)}
+          stroke="#ccc"
         />
-        <text x={boxX + 12} y={boxY + 20} font-size="12" font-weight="600" fill={getSeriesColor(hoveredPoint.label)}>
-          {hoveredPoint.label}
+
+        <text
+          x={boxX + 12}
+          y={boxY + 20}
+          font-size="12"
+          font-weight="700"
+          fill="#333"
+        >
+          Run Number: {hoverRun}
         </text>
-        <text x={boxX + 12} y={boxY + 40} font-size="12">
-          Run Number: {hoveredPoint.x}
-        </text>
-        <text x={boxX + 12} y={boxY + 60} font-size="12">
-          Value: {hoveredPoint.value.toFixed(2)} {unitText}
-        </text>
+
+        {#each hoverData as d, i}
+          <rect
+            x={boxX + 12}
+            y={boxY + 30 + i * 22}
+            width="10"
+            height="10"
+            fill={getSeriesColor(d.label)}
+          />
+          <text
+            x={boxX + 28}
+            y={boxY + 39 + i * 22}
+            font-size="12"
+            fill="#333"
+          >
+            {d.label}: {d.point.value.toFixed(2)} {unitText}
+          </text>
+        {/each}
       </g>
     {/if}
   </svg>

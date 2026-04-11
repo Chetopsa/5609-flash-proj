@@ -129,7 +129,7 @@
     display: flex;
     flex-direction: row; /* Ensure they are side-by-side */
     align-items: flex-start;
-    gap: 40px; /* Space between the charts */
+    gap: 150px; /* Space between the charts */
     width: 100%;
     margin-top: 20px;
   }

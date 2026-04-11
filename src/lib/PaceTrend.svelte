@@ -17,9 +17,9 @@
 
   // high = orange (most runs/week), mid = cyan, low = pink (fewest runs/week)
   const GROUP_COLOR: Record<string, { line: string; band: string; label: string }> = {
-    low:  { line: "#d4537e", band: "rgba(212,83,126,0.12)",  label: "Low Volume (10th Percentile)"    },
-    mid:  { line: "#26c6da", band: "rgba(38,198,218,0.12)",  label: "Mid Volume (50th Percentile)"    },
-    high: { line: "#ff6f00", band: "rgba(255,111,0,0.12)",   label: "High Volume (90th Percentile)"   },
+    low:  { line: "#d4537e", band: "rgba(212,83,126,0.12)",  label: "Low Volume"    },
+    mid:  { line: "#26c6da", band: "rgba(38,198,218,0.12)",  label: "Mid Volume"    },
+    high: { line: "#ff6f00", band: "rgba(255,111,0,0.12)",   label: "High Volume"   },
   };
 
   const GROUPS = ["low", "mid", "high"] as const;

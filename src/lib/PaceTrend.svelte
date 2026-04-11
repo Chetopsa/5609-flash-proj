@@ -1,307 +1,307 @@
 <script lang="ts">
   import * as d3 from "d3";
-  import type { TRun } from "../types";
+  import { tweened } from 'svelte/motion';
+  import { cubicOut } from 'svelte/easing';
 
-  export let runs: TRun[] = [];
-  export let yLabel: string = "Avg pace (min/km)";
+  import type { TTrajectory, TIndividual } from "../types";
 
-  const width = 600;
-  const height = 220;
-  const margin = { top: 20, right: 140, bottom: 60, left: 60 };
+  export let data: TTrajectory[] = [];
+  export let individuals: TIndividual[] = [];
+  export let selectedAthlete: string | null = null;
+
+  const width  = 1000;
+  const height = 600;
+  const margin = { top: 16, right: 120, bottom: 44, left: 56 };
   const innerWidth  = width  - margin.left - margin.right;
   const innerHeight = height - margin.top  - margin.bottom;
 
-  const COLORS: Record<string, string> = {
-    "High (4x+/wk)": "#ff6f00",
-    "Mid (2-3x/wk)":  "#80cbc4",
-    "Low (0-1x/wk)":  "#ef9a9a",
+  // high = orange (most runs/week), mid = cyan, low = pink (fewest runs/week)
+  const GROUP_COLOR: Record<string, { line: string; band: string; label: string }> = {
+    low:  { line: "#d4537e", band: "rgba(212,83,126,0.12)",  label: "Low Volume (10th Percentile)"    },
+    mid:  { line: "#26c6da", band: "rgba(38,198,218,0.12)",  label: "Mid Volume (50th Percentile)"    },
+    high: { line: "#ff6f00", band: "rgba(255,111,0,0.12)",   label: "High Volume (90th Percentile)"   },
   };
 
-  const TIERS = ["High (4x+/wk)", "Mid (2-3x/wk)", "Low (0-1x/wk)"];
+  const GROUPS = ["low", "mid", "high"] as const;
 
-  function getScales(data: TRun[]) {
-    const xScale = d3.scaleTime()
-      .domain(d3.extent(data, d => d.year_month) as [Date, Date])
-      .range([0, innerWidth]);
-
-    const yScale = d3.scaleLinear()
-      .domain([
-        d3.min(data, d => d.p25) ?? 0,
-        d3.max(data, d => d.p75) ?? 15,
-      ])
-      .range([innerHeight, 0]);
-
-    return { xScale, yScale };
+  // colour for the selected athlete line — use their group colour
+  function athleteColor(grp: string | undefined): string {
+    return grp ? (GROUP_COLOR[grp]?.line ?? "#888") : "#888";
   }
 
-  function getChart(data: TRun[]) {
-    const { xScale, yScale } = getScales(data);
-
-    const grouped = d3.group(data, d => d.tier);
-
-    const lineGen = d3.line<TRun>()
-      .x(d => xScale(d.year_month))
-      .y(d => yScale(d.median_pace))
-      .curve(d3.curveCatmullRom);
-
-    const areaGen = d3.area<TRun>()
-      .x(d  => xScale(d.year_month))
-      .y0(d => yScale(d.p25))
-      .y1(d => yScale(d.p75))
-      .curve(d3.curveCatmullRom);
-
-    const xTicks = xScale.ticks(8);
-    const yTicks = yScale.ticks(6);
-
-    return { xScale, yScale, grouped, lineGen, areaGen, xTicks, yTicks };
+  function quantile(arr: number[], q: number): number {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const pos = (sorted.length - 1) * q;
+    const lo  = Math.floor(pos);
+    const hi  = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
   }
 
-  // tooltip state — these are still regular let variables, no $ needed
-  let tooltip: {
-    x: number;
-    y: number;
-    tier: string;
-    value: number;
-    date: Date;
-    count: number;
-  } | null = null;
-  let pinnedTooltip: typeof tooltip = null;
-
-  function handleMouseOver(event: MouseEvent, d: TRun, tier: string, xScale: d3.ScaleTime<number,number>, yScale: d3.ScaleLinear<number,number>) {
-    if (pinnedTooltip) return;
-    tooltip = {
-      x: xScale(d.year_month) + margin.left,
-      y: yScale(d.median_pace) + margin.top,
-      tier,
-      value: d.median_pace,
-      date: d.year_month,
-      count: d.run_count,
-    };
-  }
-
-  function handleMouseOut() {
-    if (pinnedTooltip) return;
-    tooltip = null;
-  }
-
-  function handleClick(event: MouseEvent, d: TRun, tier: string, xScale: d3.ScaleTime<number,number>, yScale: d3.ScaleLinear<number,number>) {
-    event.stopPropagation();
-    const clicked = {
-      x: xScale(d.year_month) + margin.left,
-      y: yScale(d.median_pace) + margin.top,
-      tier,
-      value: d.median_pace,
-      date: d.year_month,
-      count: d.run_count,
-    };
-    if (
-      pinnedTooltip &&
-      pinnedTooltip.date.getTime() === d.year_month.getTime() &&
-      pinnedTooltip.tier === tier
-    ) {
-      pinnedTooltip = null;
-      tooltip = null;
-    } else {
-      pinnedTooltip = clicked;
-      tooltip = clicked;
+  function buildAggregates(rows: TTrajectory[]) {
+    type BandPoint = { run: number; lo: number; mid: number; hi: number };
+    const result: Record<string, BandPoint[]> = {};
+    for (const grp of GROUPS) {
+      const byRun = d3.group(rows.filter(r => r.group === grp), r => r.run_number);
+      const points: BandPoint[] = [];
+      for (const [run, rs] of byRun.entries()) {
+        const paces = rs.map(r => r.pace);
+        points.push({
+          run,
+          lo:  quantile(paces, 0.25),
+          mid: quantile(paces, 0.50),
+          hi:  quantile(paces, 0.75),
+        });
+      }
+      result[grp] = points.sort((a, b) => a.run - b.run);
     }
+    return result;
   }
 
-  function clearPinned() {
-    pinnedTooltip = null;
-    tooltip = null;
+  function buildSelectedLine(rows: TTrajectory[], athlete: string | null): TTrajectory[] {
+    if (!athlete) return [];
+    return rows.filter(r => r.athlete === athlete).sort((a, b) => a.run_number - b.run_number);
   }
+
+  const yDomainStore = tweened([4, 10], {
+    duration: 400,
+    easing: cubicOut
+  });
+
+  $: agg = buildAggregates(data);
+  $: selectedRuns = buildSelectedLine(data, selectedAthlete);
+  $: selectedMeta = selectedAthlete
+    ? (individuals.find(i => i.athlete === selectedAthlete) ?? null)
+    : null;
+
+  $: maxRun = data.length ? (d3.max(data, d => d.run_number) ?? 100) : 100;
+  $: aggPaces = Object.values(agg).flatMap(pts => pts.flatMap(p => [p.lo, p.hi]));
+  $: selectedPaces = selectedRuns.map(r => r.pace);
+  $: rawMin = d3.min([...aggPaces, ...selectedPaces]) ?? 3;
+  $: rawMax = d3.max([...aggPaces, ...selectedPaces]) ?? 15;
+
+  $: yDomainStore.set([rawMin - 0.2, rawMax + 0.2]);
+
+  $: xScale = d3.scaleLinear().domain([1, maxRun]).range([0, innerWidth]);
+  $: yScale = d3.scaleLinear().domain($yDomainStore).range([innerHeight, 0]);
+
+  $: lineGen = d3.line<{ run: number; mid: number }>()
+    .x(d => xScale(d.run)).y(d => yScale(d.mid)).curve(d3.curveCatmullRom);
+  $: areaGen = d3.area<{ run: number; lo: number; hi: number }>()
+    .x(d => xScale(d.run)).y0(d => yScale(d.lo)).y1(d => yScale(d.hi)).curve(d3.curveCatmullRom);
+  $: athleteLineGen = d3.line<TTrajectory>()
+    .x(d => xScale(d.run_number)).y(d => yScale(d.pace)).curve(d3.curveCatmullRom);
+
+  $: xTicks = xScale.ticks(8);
+  $: yTicks = yScale.ticks(6);
+
+  $: selectedColor = athleteColor(selectedMeta?.group);
+
+  // ── hover / crosshair ────────────────────────────────────────────────────
+  let hoverX: number | null = null;
+
+  function handleSvgMouseMove(e: MouseEvent & { currentTarget: SVGSVGElement }) {
+    const rect   = e.currentTarget.getBoundingClientRect();
+    const innerX = (e.clientX - rect.left) * (width / rect.width) - margin.left;
+    hoverX = (innerX >= 0 && innerX <= innerWidth) ? innerX : null;
+  }
+  function handleSvgMouseLeave() { hoverX = null; }
+
+  $: hoverRun = hoverX !== null ? Math.round(xScale.invert(hoverX)) : null;
+
+  function closestAggPt(
+    pts: { run: number; lo: number; mid: number; hi: number }[],
+    run: number
+  ) {
+    if (!pts.length) return null;
+    return pts.reduce((b, p) => Math.abs(p.run - run) < Math.abs(b.run - run) ? p : b);
+  }
+
+  $: hoverSnaps = hoverRun !== null
+    ? GROUPS.map(grp => ({ grp, pt: closestAggPt(agg[grp] ?? [], hoverRun!) }))
+        .filter((s): s is { grp: string; pt: NonNullable<ReturnType<typeof closestAggPt>> } => s.pt !== null)
+    : [];
+
+  $: hoverAthleteRow = (hoverRun !== null && selectedRuns.length)
+    ? selectedRuns.reduce((b, r) =>
+        Math.abs(r.run_number - hoverRun!) < Math.abs(b.run_number - hoverRun!) ? r : b
+      )
+    : null;
+
+  // panel geometry — fixed in right margin, vertically centred
+  const PANEL_W     = 240;
+  const PANEL_ROW_H = 45;
+  const PANEL_HEAD  = 30;
+  
+  $: panelH = PANEL_HEAD + (GROUPS.length * PANEL_ROW_H) + (selectedMeta ? 40 : 10);
+
+  const panelX = innerWidth + 6;
+  $: legendSpace = (GROUPS.length + 1) * 25; 
+  $: panelY = legendSpace + 20;
 </script>
 
-<!-- compute everything once at the top of the template -->
-{#if runs.length > 0}
-  {@const { xScale, yScale, grouped, lineGen, areaGen, xTicks, yTicks } = getChart(runs)}
-
-  <svg {width} {height} viewBox="0 0 {width} {height}" style="width:100%;height:auto;">
+{#if data.length > 0}
+  <svg
+    {width} {height}
+    viewBox="0 0 {width} {height}"
+    style="width:100%;height:auto;overflow:visible;"
+    on:mousemove={handleSvgMouseMove}
+    on:mouseleave={handleSvgMouseLeave}
+  >
     <g transform="translate({margin.left},{margin.top})">
 
-      <!-- click background to clear pinned tooltip -->
-      <rect
-        x={-margin.left} y={-margin.top}
-        width={width} height={height}
-        fill="transparent"
-        on:click={clearPinned}
-      />
-
-      <!-- x axis gridlines + labels -->
+      <!-- x grid + labels -->
       {#each xTicks as tick}
-        <line
-          x1={xScale(tick)} y1={0}
-          x2={xScale(tick)} y2={innerHeight}
-          stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,4"
-        />
-        <text
-          x={xScale(tick)} y={innerHeight + 20}
-          text-anchor="middle" font-size="6" fill="#888"
-        >
-          {d3.timeFormat("%b %Y")(tick)}
-        </text>
+        <line x1={xScale(tick)} y1={0} x2={xScale(tick)} y2={innerHeight}
+          stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,4" />
+        <text x={xScale(tick)} y={innerHeight + 13}
+          text-anchor="middle" font-size="15" fill="#888">{tick}</text>
       {/each}
+      <text x={innerWidth / 2} y={innerHeight + 36}
+        text-anchor="middle" font-size="20" fill="#888">Run number (cumulative)</text>
 
-      <!-- x axis label -->
-      <text
-        x={innerWidth / 2}
-        y={innerHeight + 45}
-        text-anchor="middle"
-        font-size="8"
-        fill="#888"
-      >
-        Date (Month / Year)
-      </text>
-
-      <!-- y axis gridlines + labels -->
+      <!-- y grid + labels -->
       {#each yTicks as tick}
-        <line
-          x1={0}          y1={yScale(tick)}
-          x2={innerWidth} y2={yScale(tick)}
-          stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,4"
-        />
-        <text
-          x={-8} y={yScale(tick)}
-          text-anchor="end" dominant-baseline="central"
-          font-size="8" fill="#888"
-        >
+        <line x1={0} y1={yScale(tick)} x2={innerWidth} y2={yScale(tick)}
+          stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,4" />
+        <text x={-5} y={yScale(tick)}
+          text-anchor="end" dominant-baseline="central" font-size="15" fill="#888">
           {tick.toFixed(1)}
         </text>
       {/each}
+      <text transform="rotate(-90)" x={-innerHeight / 2} y={-36}
+        text-anchor="middle" font-size="20" fill="#888">Pace (min/km) — lower is faster</text>
 
-      <!-- y axis label -->
-      <text
-        transform="rotate(-90)"
-        x={-innerHeight / 2} y={-44}
-        text-anchor="middle" font-size="8" fill="#888"
-      >
-        {yLabel}
-      </text>
-
-      <!-- tier lines, bands, and points -->
-      {#each TIERS as tier}
-        {#if grouped.has(tier)}
-          {@const tierData = (grouped.get(tier) ?? []).sort((a, b) => +a.year_month - +b.year_month)}
-          {@const color = COLORS[tier]}
-
-          <!-- confidence band -->
+      <!-- band + median per group (fade when a runner is selected) -->
+      {#each GROUPS as grp}
+        {@const { line: lc, band: bc } = GROUP_COLOR[grp]}
+        {@const pts = agg[grp] ?? []}
+        {@const faded = selectedRuns.length > 0}
+        {#if pts.length > 1}
+          <path d={areaGen(pts) ?? ""} fill={bc} stroke="none" opacity={faded ? 0.50 : 1} />
           <path
-            class="band"
-            d={areaGen(tierData) ?? ""}
-            fill={color}
-            opacity="0.15"
+            d={lineGen(pts.map(p => ({ run: p.run, mid: p.mid }))) ?? ""}
+            fill="none" stroke={lc} stroke-width="2"
+            opacity={faded ? 0.2 : 0.9}
           />
-
-          <!-- median line -->
-          <path
-            class="line"
-            d={lineGen(tierData) ?? ""}
-            fill="none"
-            stroke={color}
-            stroke-width="2.5"
-          />
-
-          <!-- individual clickable points -->
-          {#each tierData as d}
-            {@const isPinned =
-              pinnedTooltip?.date.getTime() === d.year_month.getTime() &&
-              pinnedTooltip?.tier === tier}
-            <circle
-              cx={xScale(d.year_month)}
-              cy={yScale(d.median_pace)}
-              r={isPinned ? 6 : 3}
-              fill={color}
-              opacity={isPinned ? 1 : 0.7}
-              stroke={isPinned ? "white" : "none"}
-              stroke-width={isPinned ? 1.5 : 0}
-              style="cursor:pointer;"
-              on:mouseover={(e) => handleMouseOver(e, d, tier, xScale, yScale)}
-              on:mouseout={handleMouseOut}
-              on:click={(e) => handleClick(e, d, tier, xScale, yScale)}
-              on:focus={(e) => handleMouseOver(e, d, tier, xScale, yScale)}
-              on:blur={handleMouseOut}
-              on:keydown={(e) => e.key === "Enter" && handleClick(e, d, tier, xScale, yScale)}
-              role="button"
-              tabindex="0"
-              aria-label="{tier} {d3.timeFormat('%b %Y')(d.year_month)}: {d.median_pace.toFixed(2)}"
-            />
-          {/each}
-
-          <!-- legend dot + label -->
-          <circle
-            class="legend-dot"
-            cx={innerWidth + 10}
-            cy={yScale((tierData.at(-1)?.median_pace) ?? 0)}
-            r="3"
-            fill={color}
-          />
-          <text
-            class="legend-label"
-            x={innerWidth + 18}
-            y={yScale((tierData.at(-1)?.median_pace) ?? 0)}
-            dominant-baseline="central"
-            font-size="6"
-            fill={color}
-          >
-            {tier}
-          </text>
         {/if}
       {/each}
 
-      <!-- tooltip -->
-      {#if tooltip}
-        {@const tx = Math.min(tooltip.x, width - margin.left - 180)}
-        {@const ty = Math.max(tooltip.y - margin.top - 10, 0)}
-        <g transform="translate({tx},{ty})" on:click|stopPropagation={() => {}}>
-          <rect
-            x={0} y={-18}
-            width="175" height="72"
-            rx="6"
-            fill="white"
-            stroke={pinnedTooltip ? "#ff6f00" : "#ccc"}
-            stroke-width={pinnedTooltip ? 1.5 : 0.5}
-            opacity="0.97"
+      <!-- selected athlete line — solid dark, drawn on top -->
+      {#if selectedRuns.length > 1}
+        <path
+          d={athleteLineGen(selectedRuns) ?? ""}
+          fill="none" stroke="#495057" stroke-width="2.5" opacity="1"
+        />
+        {@const last = selectedRuns[selectedRuns.length - 1]}
+        <circle
+          cx={xScale(last.run_number)} cy={yScale(last.pace)}
+          r="4.5" fill="#495057" stroke="white" stroke-width="1.5"
+        />
+      {/if}
+
+      <!-- crosshair + dots + hover panel -->
+      {#if hoverX !== null && hoverSnaps.length > 0}
+
+        <line x1={hoverX} y1={0} x2={hoverX} y2={innerHeight}
+          stroke="#aaa" stroke-width="1" stroke-dasharray="4,3" opacity="0.8" />
+
+        {#each hoverSnaps as { grp, pt }}
+          <circle
+            cx={xScale(pt.run)} cy={yScale(pt.mid)}
+            r="4" fill={GROUP_COLOR[grp].line} stroke="white" stroke-width="1.5"
           />
-          {#if pinnedTooltip}
-            <circle cx="163" cy="-8" r="4" fill="#ff6f00" />
+        {/each}
+
+        {#if hoverAthleteRow}
+          <circle
+            cx={xScale(hoverAthleteRow.run_number)} cy={yScale(hoverAthleteRow.pace)}
+            r="5" fill="#1a1a1a" stroke="white" stroke-width="1.5"
+          />
+        {/if}
+
+        <!-- info panel -->
+        <g transform="translate({panelX},{panelY})">
+          <rect x={0} y={0} width={PANEL_W} height={panelH}
+            rx="8" fill="#fcfcfc" stroke="#ddd" stroke-width="1" />
+
+          <text x={PANEL_W / 2} y={20}
+            text-anchor="middle" font-size="14" font-weight="700" fill="#444">
+            {hoverRun !== null ? `Run ${hoverRun}` : 'Run Statistics'}
+          </text>
+          <line x1={10} y1={28} x2={PANEL_W - 10} y2={28} stroke="#eee" stroke-width="1" />
+
+          {#each GROUPS as grp, i}
+            {@const { line: lc, label } = GROUP_COLOR[grp]}
+            {@const snap = hoverSnaps.find(s => s.grp === grp)}
+            {@const ry = PANEL_HEAD + i * PANEL_ROW_H}
+            
+            <rect x={10} y={ry + 10} width={8} height={8} rx="2" fill={lc} />
+            <text x={25} y={ry + 18} font-size="12" font-weight="600" fill={lc}>{label}</text>
+
+            {#if snap}
+              <text x={PANEL_W - 10} y={ry + 18}
+                text-anchor="end" font-size="16" font-weight="700" fill={lc}>
+                {snap.pt.mid.toFixed(2)}
+              </text>
+              <text x={25} y={ry + 32} font-size="10" fill="#999">
+                Range: {snap.pt.lo.toFixed(2)} – {snap.pt.hi.toFixed(2)}
+              </text>
+            {:else}
+              <text x={PANEL_W - 10} y={ry + 18} text-anchor="end" font-size="12" fill="#ccc">—</text>
+            {/if}
+          {/each}
+
+          {#if selectedMeta}
+            {@const ay = PANEL_HEAD + GROUPS.length * PANEL_ROW_H + 5}
+            <line x1={10} y1={ay} x2={PANEL_W - 10} y2={ay} stroke="#ddd" stroke-dasharray="3,2" />
+            
+            <text x={10} y={ay + 20} font-size="12" font-weight="700" fill="#495057">
+              Athlete #{selectedAthlete}
+            </text>
+
+            {#if hoverAthleteRow}
+              <text x={PANEL_W - 10} y={ay + 20} text-anchor="end" font-size="16" font-weight="700" fill="#495057">
+                {hoverAthleteRow.pace.toFixed(2)}
+              </text>
+            {:else}
+              <text x={PANEL_W - 10} y={ay + 20} text-anchor="end" font-size="12" fill="#ccc">—</text>
+            {/if}
           {/if}
-          <text x="8" y="-4" font-size="8" font-weight="500" fill="#333">
-            {tooltip.tier}
-          </text>
-          <text x="8" y="13" font-size="6" fill="#666">
-            {d3.timeFormat("%b %Y")(tooltip.date)}
-          </text>
-          <text x="8" y="28" font-size="6" fill="#666">
-            Value: {tooltip.value.toFixed(2)}
-          </text>
-          <text x="8" y="43" font-size="6" fill="#666">
-            Runs logged: {tooltip.count}
-          </text>
         </g>
+      {/if}
+
+      <!-- legend -->
+      {#each GROUPS as grp, i}
+        {@const { line: lc, band: bc, label } = GROUP_COLOR[grp]}
+        <rect
+          x={innerWidth + 6} y={10 + i * 22}
+          width={18} height={10} rx="2"
+          fill={bc} stroke={lc} stroke-width="1.2"
+        />
+        <text x={innerWidth + 28} y={10 + i * 22 + 8}
+          font-size="15" fill={lc}>{label}</text>
+      {/each}
+
+      {#if selectedMeta}
+        {@const legendY = 10 + GROUPS.length * 22 + 8}
+        <line
+          x1={innerWidth + 6} y1={legendY}
+          x2={innerWidth + 24} y2={legendY}
+          stroke="#1a1a1a" stroke-width="2.5"
+        />
+        <text x={innerWidth + 28} y={legendY + 4}
+          font-size="9" fill="#1a1a1a">
+          #{selectedAthlete}
+        </text>
       {/if}
 
     </g>
   </svg>
-
 {:else}
-  <p style="color:#888;font-size:13px;">Loading chart data...</p>
+  <p style="color:#888;font-size:13px;">Loading chart data…</p>
 {/if}
 
 <style>
-  path.band {
-    transition: d 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
-  }
-  path.line {
-    transition: d 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease;
-  }
-  circle.legend-dot {
-    transition: cy 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  text.legend-label {
-    transition: y 0.6s ease;
-  }
-  circle:not(.legend-dot):hover {
-    opacity: 1;
-  }
+  path { transition: opacity 0.2s ease; }
 </style>

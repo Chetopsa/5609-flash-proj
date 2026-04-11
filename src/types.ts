@@ -31,3 +31,19 @@ export type TRun = {
     run_count: number;
     avg_runs_per_athlete: number;
 }
+
+export type TTrajectory = {
+  athlete:    string;
+  run_number: number;
+  pace:       number;
+  pace_raw:   number;
+  group:      "low" | "mid" | "high";
+};
+
+export type TIndividual = {
+  athlete:        string;
+  group:          "low" | "mid" | "high";
+  percentile_raw: number;
+  total_runs:     number;
+  avg_pace:       number;
+};

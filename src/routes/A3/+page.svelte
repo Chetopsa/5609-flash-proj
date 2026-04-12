@@ -13,6 +13,10 @@
 		speedKmh: number;
 		climbEfficiency: number;
 		efficiency: number;
+		// ── new columns ──
+		yearWeek: string;
+		percentileAvgRunsWeek: number;
+		avgRunsPerWeek: number;
 	};
 
 	/** Static data: `static/running-races.csv` is served at site root. */
@@ -22,7 +26,7 @@
 	let selectedAthlete = $state("");
 	let loadError = $state<string | null>(null);
 
-	const parseTime = d3.timeParse("%d/%m/%Y %H:%M");
+	const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
 	async function loadCsv() {
 		try {
@@ -40,6 +44,10 @@
 					speedKmh: Number(row["speed (km/hour)"]),
 					climbEfficiency: Number(row["climb efficiency"]),
 					efficiency: Number(row["efficiency"]),
+					// ── new columns ──
+					yearWeek: row["year_week"] ?? "",
+					percentileAvgRunsWeek: Number(row["percentile_avg_runs_week"]),
+					avgRunsPerWeek: Number(row["avg_runs_per_week"]),
 				} satisfies RaceRow;
 			});
 			allRows = (raw as RaceRow[]).filter(

@@ -13,6 +13,12 @@
     runNumber: number;
   };
 
+  type TIndividual = {
+    athlete: string;
+    total_runs: number;
+    group: string;
+  };
+
   type LinePoint = {
     x: number;
     value: number;
@@ -24,6 +30,7 @@
   };
 
   let runs: TRun[] = $state([]);
+  let individuals: TIndividual[] = $state([]);
   let groupPaceSeries: Series[] = $state([]);
   let groupHrSeries: Series[] = $state([]);
 
@@ -33,12 +40,10 @@
   let selectedMetric: "pace" | "hr" = $state("pace");
   let selectedRunner = $state("");
   let useSmoothing = $state(true);
-
-  // NEW: interactive run cap
   let maxRunNumber = $state(120);
 
   const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
-  
+
   const percentileOrder = [
     "10th percentile (Low)",
     "50th percentile (Medium)",
@@ -96,6 +101,18 @@
         !Number.isNaN(d.timestamp.getTime()) &&
         Number.isFinite(d.runNumber) &&
         Number.isFinite(d.pace_min_km)
+      );
+    });
+  }
+
+  function getBaseIndividualRuns(allRuns: TRun[]): TRun[] {
+    return allRuns.filter((d) => {
+      return (
+        d.athlete &&
+        d.elevation_group &&
+        d.timestamp instanceof Date &&
+        !Number.isNaN(d.timestamp.getTime()) &&
+        Number.isFinite(d.runNumber)
       );
     });
   }
@@ -170,7 +187,7 @@
   ): Series[] {
     if (!athleteId) return [];
 
-    const filtered = getBaseFilteredRuns(allRuns)
+    const filtered = getBaseIndividualRuns(allRuns)
       .filter((d) => d.athlete === athleteId)
       .filter((d) => Number.isFinite(d.elev_gain_m))
       .filter((d) => d.runNumber <= maxRunNumber)
@@ -194,36 +211,43 @@
     errorMsg = "";
 
     try {
-      const csvUrl = "/annotated-running-races-with-elevation.csv";
+      const [rawRuns, rawIndividuals] = await Promise.all([
+        d3.csv("/annotated-running-races-with-elevation.csv", (row) => {
+          const athlete = (row["athlete"] ?? "").trim();
+          const timestampRaw = (row["timestamp"] ?? "").trim();
+          const timestamp = parseTime(timestampRaw);
 
-      const parsed = await d3.csv(csvUrl, (row) => {
-        const athlete = (row["athlete"] ?? "").trim();
-        const timestampRaw = (row["timestamp"] ?? "").trim();
-        const timestamp = parseTime(timestampRaw);
+          const distance_m = Number(row["distance (m)"]);
+          const elapsed_s = Number(row["elapsed time (s)"]);
+          const elev_gain_m = Number(row["elevation gain (m)"]);
+          const avg_hr_bpm =
+            row["average heart rate (bpm)"] && row["average heart rate (bpm)"] !== ""
+              ? Number(row["average heart rate (bpm)"])
+              : null;
 
-        const distance_m = Number(row["distance (m)"]);
-        const elapsed_s = Number(row["elapsed time (s)"]);
-        const elev_gain_m = Number(row["elevation gain (m)"]);
-        const avg_hr_bpm =
-          row["average heart rate (bpm)"] && row["average heart rate (bpm)"] !== ""
-            ? Number(row["average heart rate (bpm)"])
-            : null;
+          const pace_min_km =
+            distance_m > 0 ? (elapsed_s / 60) / (distance_m / 1000) : NaN;
 
-        const pace_min_km =
-          distance_m > 0 ? (elapsed_s / 60) / (distance_m / 1000) : NaN;
+          return {
+            athlete,
+            timestamp: timestamp ?? new Date("invalid"),
+            elev_gain_m,
+            avg_hr_bpm,
+            pace_min_km,
+            elevation_group: normalizeElevationGroup(row["elevation_group"] ?? ""),
+            runNumber: 0
+          } as TRun;
+        }),
 
-        return {
-          athlete,
-          timestamp: timestamp ?? new Date("invalid"),
-          elev_gain_m,
-          avg_hr_bpm,
-          pace_min_km,
-          elevation_group: normalizeElevationGroup(row["elevation_group"] ?? ""),
-          runNumber: 0
-        } as TRun;
-      });
+        d3.csv("/trajectory_individual.csv", (row) => ({
+          athlete: (row["athlete"] ?? "").trim(),
+          total_runs: Number(row["total_runs"]),
+          group: (row["group"] ?? "").trim()
+        }) as TIndividual)
+      ]);
 
-      runs = addRunNumber(parsed.filter(Boolean) as TRun[]);
+      runs = addRunNumber(rawRuns.filter(Boolean) as TRun[]);
+      individuals = rawIndividuals.filter((d) => d.athlete);
 
       groupPaceSeries = buildElevationGroupSeries(runs, "pace");
       groupHrSeries = buildElevationGroupSeries(runs, "hr");
@@ -245,8 +269,7 @@
   const runnerOptions = $derived(
     [...new Set(runs.map((d) => d.athlete).filter(Boolean))]
       .map((athlete) => {
-        const athleteRuns = runs.filter((d) => d.athlete === athlete);
-        const runner = athleteRuns[0];
+        const runner = runs.find((d) => d.athlete === athlete);
 
         return {
           athlete,
@@ -272,12 +295,7 @@
   );
 
   const selectedRunnerTotalRuns = $derived(
-    runs.filter(
-      (d) =>
-        d.athlete === selectedRunner &&
-        Number.isFinite(d.elev_gain_m) &&
-        d.runNumber <= maxRunNumber
-    ).length
+    individuals.find((d) => d.athlete === selectedRunner)?.total_runs ?? 0
   );
 
   const mainTitle = $derived(
@@ -292,8 +310,8 @@
 
   const mainNote = $derived(
     selectedMetric === "pace"
-      ? `Each line shows the average pace at each run number for the 10th, 50th, and 90th percentile elevation groups. Lower values indicate faster pace.`
-      : `Each line shows the average heart rate at each run number for the 10th, 50th, and 90th percentile elevation groups.`
+      ? "Each line shows the average pace at each run number for the 10th, 50th, and 90th percentile elevation groups. Lower values indicate faster pace."
+      : "Each line shows the average heart rate at each run number for the 10th, 50th, and 90th percentile elevation groups."
   );
 
   const individualTitle = $derived(
@@ -305,7 +323,7 @@
   );
 
   const individualNote = $derived(
-    `This chart shows how a selected runner’s elevation gain changes across runs 1–${maxRunNumber}.`
+    `This chart shows how each runner’s elevation gain changes across runs 1–${maxRunNumber}.`
   );
 
   $effect(() => {

@@ -55,7 +55,7 @@
     if (label.includes("10th percentile")) return "#4C72B0";
     if (label.includes("50th percentile")) return "#55A868";
     if (label.includes("90th percentile")) return "#C44E52";
-    return "#333";
+    return "#E83E8C";
   }
 
   const xScale = $derived(
@@ -104,8 +104,6 @@
   );
 
   let hoverX = $state<number | null>(null);
-  let tooltipX = $state(0);
-  let tooltipY = $state(0);
 
   function handleSvgMouseMove(event: MouseEvent) {
     if (!svgEl) return;
@@ -123,8 +121,6 @@
     }
 
     hoverX = mx;
-    tooltipX = mx;
-    tooltipY = my;
   }
 
   function clearHover() {
@@ -152,10 +148,6 @@
             point: getClosestPoint(s.values, hoverRun)
           }))
           .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
-  );
-
-  const focusLabel = $derived(
-    hoverData.length === 1 ? hoverData[0].label : null
   );
 </script>
 
@@ -201,7 +193,7 @@
           d={lineGen(s.values) ?? ""}
           fill="none"
           stroke={getSeriesColor(s.label)}
-          stroke-width={focusLabel === s.label ? 3.2 : 2}
+          stroke-width="2"
           opacity={hoverRun !== null ? 0.78 : 0.85}
         />
       {/each}
@@ -292,7 +284,7 @@
       {#if totalRuns !== null}
         <text
           x="0"
-          y={14 + labels.length * 22 + 10}
+          y={14 + labels.length * 22 + 12}
           font-size="12"
           font-weight="500"
           fill="#666"

@@ -7,7 +7,7 @@
     athlete: string;
     timestamp: Date;
     elev_gain_m: number;
-    avg_hr_bpm: number | null;
+    avg_hr_bpm: number;
     pace_min_km: number;
     elevation_group: string;
     runNumber: number;

@@ -88,13 +88,19 @@
 
 	onMount(loadCsv);
 
-	const athleteIds = $derived(
-		[...new Set(allRows.map((r) => r.athlete))].sort((a, b) =>
-			a.localeCompare(b, undefined, { numeric: true }),
-		),
+	type AthleteOption = { id: string; runCount: number; group: Group; avgRunsPerWeek: number };
+
+	const athleteOptions = $derived(
+		[...d3.group(allRows, (r) => r.athlete)]
+			.map(([id, rows]): AthleteOption => {
+				const avgPercentile = d3.mean(rows, (r) => r.percentileAvgRunsWeek) ?? 0;
+				const avgRunsPerWeek = d3.mean(rows, (r) => r.avgRunsPerWeek) ?? 0;
+				return { id, runCount: rows.length, group: getGroup(avgPercentile), avgRunsPerWeek };
+			})
+			.sort((a, b) => b.avgRunsPerWeek - a.avgRunsPerWeek),
 	);
 
-	// ── Percentile grouping ────────────────────────────────────────────────────
+	//  Percentile grouping 
 	type Group = "low" | "medium" | "high";
 
 	function getGroup(p: number): Group {
@@ -109,13 +115,13 @@
 		high: "#f05a5a",
 	};
 	const GROUP_LABELS: Record<Group, string> = {
-		low: "10th pct (Low)",
-		medium: "50th pct (Medium)",
-		high: "90th pct (High)",
+		low: "Low Volume",
+		medium: "Medium Volume",
+		high: "High Volume",
 	};
 	const GROUPS: Group[] = ["low", "medium", "high"];
 
-	// ── Chart geometry ─────────────────────────────────────────────────────────
+	//  Chart geometry 
 	const W = 940;
 	const H = 430;
 	const margin = { top: 32, right: 192, bottom: 58, left: 66 };
@@ -135,7 +141,7 @@
 		return { slope, intercept: (sy - slope * sx) / n };
 	}
 
-	// ── All entries (hard cap at run 500) ─────────────────────────────────────
+	//  All entries (hard cap at run 500) 
 	type Entry = { runIndex: number; yVal: number; group: Group; athlete: string };
 
 	const allEntries = $derived.by((): Entry[] => {
@@ -158,7 +164,7 @@
 		return entries;
 	});
 
-	// ── Per-(group, runIndex) average lookup — used by chart AND tooltip ───────
+	//   Per-(group, runIndex) average lookup — used by chart AND tooltip    ─
 	const groupRunAvgMap = $derived.by((): Record<Group, Map<number, { avg: number; n: number }>> => {
 		const map: Record<Group, Map<number, { avg: number; n: number }>> = {
 			low: new Map(), medium: new Map(), high: new Map(),
@@ -175,7 +181,7 @@
 		return map;
 	});
 
-	// ── Main chart derived ─────────────────────────────────────────────────────
+	//   Main chart derived                           ─
 	type CircleDatum = {
 		cx: number; cy: number; fill: string; group: Group; runIndex: number; title: string;
 	};
@@ -293,7 +299,7 @@
 		}
 	});
 
-	// ── Axis effects ──────────────────────────────────────────────────────────
+	// Axis  
 	let axisX: SVGGElement | undefined = $state();
 	let axisY: SVGGElement | undefined = $state();
 
@@ -304,7 +310,7 @@
 			d3.select(axisY).call(d3.axisLeft(chartData.yScale).ticks(6));
 	});
 
-	// ── Mouse interaction ─────────────────────────────────────────────────────
+	//   Mouse interaction                           ─
 	function svgMouseToRunIdx(clientX: number): number {
 		if (!chartData.xScale || !svgEl) return 1;
 		const rect = svgEl.getBoundingClientRect();
@@ -327,7 +333,7 @@
 		pinnedRunIdx = pinnedRunIdx === idx ? null : idx;
 	}
 
-	// ── Active run for crosshair + tooltip ────────────────────────────────────
+	//   Active run for crosshair + tooltip                   
 	const activeRunIdx = $derived(pinnedRunIdx ?? hoveredRunIdx);
 
 	const crosshairX = $derived(
@@ -365,7 +371,7 @@
 		};
 	});
 
-	// ── Misc helpers ──────────────────────────────────────────────────────────
+	//   Misc helpers                              
 	const runCount = $derived(
 		selectedAthlete
 			? allRows.filter((r) => r.athlete === selectedAthlete).length
@@ -433,14 +439,14 @@
 		{:else if !allRows.length}
 			<p class="loading">Loading data…</p>
 		{:else}
-			<!-- ── Controls row ── -->
+			<!--   Controls row   -->
 			<div class="controls">
 				<label class="picker">
 					<span class="label-text">Athlete</span>
 					<select bind:value={selectedAthlete}>
 						<option value="">All Athletes</option>
-						{#each athleteIds as id}
-							<option value={id}>{id}</option>
+						{#each athleteOptions as opt}
+							<option value={opt.id}>#{opt.id} - {GROUP_LABELS[opt.group]} - {opt.runCount} runs</option>
 						{/each}
 					</select>
 					<span class="meta">{runCount} runs</span>
@@ -460,7 +466,7 @@
 				</div>
 			</div>
 
-			<!-- ── X-axis slider ── -->
+			<!--   X-axis slider   -->
 			<div class="slider-row">
 				<span class="slider-label">Show runs 1 –</span>
 				<input
@@ -474,7 +480,7 @@
 				<span class="slider-val">{xMax}</span>
 			</div>
 
-			<!-- ── Chart section ── -->
+			<!--   Chart section   -->
 			<section class="chart-block">
 				<h2>
 					{yLabel} by cumulative run number
@@ -553,7 +559,7 @@
 						</circle>
 					{/each}
 
-					<!-- ── Crosshair ── -->
+					<!--   Crosshair   -->
 					{#if crosshairX !== null && activeRunIdx !== null}
 						<!-- Vertical rule -->
 						<line
@@ -635,7 +641,7 @@
 					{/each}
 				</svg>
 
-				<!-- ── Values panel ── -->
+				<!--  Values panel  -->
 				<aside class="values-panel" class:visible={tooltipData !== null}>
 					{#if tooltipData}
 						<div class="vp-header">
@@ -695,7 +701,7 @@
 		color: #1a1a1a;
 	} */
 
-	/* ── Typography ── */
+	/*   Typography   */
 	h1 {
 		font-size: 28px;
 		font-weight: 700;
@@ -737,7 +743,7 @@
 		margin-top: 5rem;
 	}
 
-	/* ── Controls ── */
+	/*  Controls  */
 	.controls, .slider-row {
 		display: flex;
 		align-items: center;
@@ -767,7 +773,7 @@
 		cursor: pointer;
 	}
 
-	/* ── Toggle ── */
+	/*   Toggle   */
 	.toggle-group {
 		display: flex;
 		border: 1px solid #ccc;
@@ -793,11 +799,11 @@
 		font-weight: 600;
 	}
 
-	/* ── Slider ── */
+	
 	.slider { width: 320px; accent-color: #1a1a1a; cursor: pointer; }
 	.slider-val { font-weight: 700; min-width: 32px; }
 
-	/* ── Layout ── */
+	/*   Layout   */
 	.chart-and-panel {
 		display: flex;
 		gap: 1rem;
@@ -811,7 +817,7 @@
 		cursor: crosshair;
 	}
 
-	/* ── SVG text ── */
+	/*   SVG text   */
 	.axis-label,
 	.legend-label,
 	.legend-heading {
@@ -829,7 +835,7 @@
 
 	.legend-label { font-size: 11px; fill: #333; }
 
-	/* ── Tooltip panel ── */
+	/*   Tooltip panel   */
 	.values-panel {
 		width: 220px;
 		border: 1px solid #e0e0e0;
@@ -884,11 +890,11 @@
 		font-size: 0.75rem;
 	}
 
-	/* ── States ── */
+	/*   States   */
 	.err { color: #b03020; }
 	.loading { color: #666; }
 
-	/* ── D3 axes ── */
+	/*   D3 axes   */
 	:global(.chart .tick line) { stroke: #ccc; }
 	:global(.chart .domain) { stroke: #999; }
 	:global(.chart .tick text) {

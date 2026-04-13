@@ -78,10 +78,16 @@
 
 	onMount(loadCsv);
 
-	const athleteIds = $derived(
-		[...new Set(allRows.map((r) => r.athlete))].sort((a, b) =>
-			a.localeCompare(b, undefined, { numeric: true }),
-		),
+	type AthleteOption = { id: string; runCount: number; group: Group; avgRunsPerWeek: number };
+
+	const athleteOptions = $derived(
+		[...d3.group(allRows, (r) => r.athlete)]
+			.map(([id, rows]): AthleteOption => {
+				const avgPercentile = d3.mean(rows, (r) => r.percentileAvgRunsWeek) ?? 0;
+				const avgRunsPerWeek = d3.mean(rows, (r) => r.avgRunsPerWeek) ?? 0;
+				return { id, runCount: rows.length, group: getGroup(avgPercentile), avgRunsPerWeek };
+			})
+			.sort((a, b) => b.avgRunsPerWeek - a.avgRunsPerWeek),
 	);
 
 	// ── Percentile grouping ────────────────────────────────────────────────────
@@ -99,9 +105,9 @@
 		high: "#f05a5a",
 	};
 	const GROUP_LABELS: Record<Group, string> = {
-		low: "10th pct (Low)",
-		medium: "50th pct (Medium)",
-		high: "90th pct (High)",
+		low: "Low Volume",
+		medium: "Medium Volume",
+		high: "High Volume",
 	};
 	const GROUPS: Group[] = ["low", "medium", "high"];
 
@@ -390,8 +396,8 @@
 				<span class="label-text">Athlete</span>
 				<select bind:value={selectedAthlete}>
 					<option value="">All Athletes</option>
-					{#each athleteIds as id}
-						<option value={id}>{id}</option>
+					{#each athleteOptions as opt}
+						<option value={opt.id}>#{opt.id} - {GROUP_LABELS[opt.group]} - {opt.runCount} runs</option>
 					{/each}
 				</select>
 				<span class="meta">{runCount} runs</span>

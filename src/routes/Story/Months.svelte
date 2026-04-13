@@ -8,14 +8,14 @@
   export let yMax: number | null = 4000;
   export let zoomThreshold = 3000;
   export let lowRegionRatio = 0.32;
+  export let width = 920;
+  export let height = 480;
   let data: { month: number, count: number }[] = [];
 
   // Dimensions
-  const width = 800;
-  const height = 400;
   const margin = { top: 50, right: 30, bottom: 80, left: 60 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
+  $: innerWidth = width - margin.left - margin.right;
+  $: innerHeight = height - margin.top - margin.bottom;
 
   // Colors - using the "Easy on the eyes" Graphite/Slate theme
   const barColor = "#2d2e2e";
@@ -70,7 +70,7 @@
   <svg 
     {width} {height} 
     viewBox="0 0 {width} {height}" 
-    style="max-width: 100%; height: auto;"
+    style="width: {width}px; height: {height}px;"
     role="img"
     aria-labelledby="chart-title"
   >

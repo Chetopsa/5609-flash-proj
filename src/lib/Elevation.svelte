@@ -52,9 +52,9 @@
   const labels = $derived(series.map((s) => s.label));
 
   function getSeriesColor(label: string): string {
-    if (label.includes("10th percentile")) return "#4C72B0";
-    if (label.includes("50th percentile")) return "#55A868";
-    if (label.includes("90th percentile")) return "#C44E52";
+    if (label.includes("Low")) return "#4C72B0";
+    if (label.includes("Medium")) return "#55A868";
+    if (label.includes("High")) return "#C44E52";
     return "#E83E8C";
   }
 

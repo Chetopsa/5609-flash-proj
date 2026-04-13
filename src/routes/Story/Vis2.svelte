@@ -109,9 +109,9 @@
 		high: "#f05a5a",
 	};
 	const GROUP_LABELS: Record<Group, string> = {
-		low: "10th pct (Low)",
-		medium: "50th pct (Medium)",
-		high: "90th pct (High)",
+		low: "0–33rd pct (Low)",
+		medium: "33–67th pct (Medium)",
+		high: "67–100th pct (High)",
 	};
 	const GROUPS: Group[] = ["low", "medium", "high"];
 

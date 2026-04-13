@@ -394,7 +394,7 @@
       <select id="runner-select" bind:value={selectedRunner}>
         {#each runnerOptions as runner}
           <option value={runner.athlete}>
-            #{runner.athlete} · {runner.group} ({groupDisplayMap[runner.group as keyof typeof groupDisplayMap]})
+            #{runner.athlete} · {runner.group}
           </option>
         {/each}
       </select>

@@ -45,27 +45,27 @@
   const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
   const percentileOrder = [
-    "10th percentile (Low)",
-    "50th percentile (Medium)",
-    "90th percentile (High)"
+    "Low",
+    "Medium",
+    "High"
   ];
 
   const groupDisplayMap = {
-    "90th percentile": "High",
-    "50th percentile": "Medium",
-    "10th percentile": "Low"
+    "High": "High",
+    "Medium": "Medium",
+    "Low": "Low"
   };
 
   const groupSortOrder = {
-    "90th percentile": 0,
-    "50th percentile": 1,
-    "10th percentile": 2
+    "High": 0,
+    "Medium": 1,
+    "Low": 2
   };
 
   const groupLabelMap = {
-    "10th percentile": "10th percentile (Low)",
-    "50th percentile": "50th percentile (Medium)",
-    "90th percentile": "90th percentile (High)"
+    "Low": "Low",
+    "Medium": "Medium",
+    "High": "High"
   };
 
   function addRunNumber(allRuns: TRun[]): TRun[] {
@@ -310,8 +310,8 @@
 
   const mainNote = $derived(
     selectedMetric === "pace"
-      ? "Each line shows the average pace at each run number for the 10th, 50th, and 90th percentile elevation groups. Lower values indicate faster pace."
-      : "Each line shows the average heart rate at each run number for the 10th, 50th, and 90th percentile elevation groups."
+      ? "Each line shows the average pace at each run number for the low, medium, and high elevation groups. Lower values indicate faster pace."
+      : "Each line shows the average heart rate at each run number for the low, medium, and high elevation groups."
   );
 
   const individualTitle = $derived(
@@ -394,7 +394,7 @@
       <select id="runner-select" bind:value={selectedRunner}>
         {#each runnerOptions as runner}
           <option value={runner.athlete}>
-            #{runner.athlete} · {runner.group} ({groupDisplayMap[runner.group as keyof typeof groupDisplayMap]})
+            #{runner.athlete} · {runner.group}
           </option>
         {/each}
       </select>

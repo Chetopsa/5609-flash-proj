@@ -52,9 +52,9 @@
   const labels = $derived(series.map((s) => s.label));
 
   function getSeriesColor(label: string): string {
-    if (label.includes("10th percentile")) return "#4C72B0";
-    if (label.includes("50th percentile")) return "#55A868";
-    if (label.includes("90th percentile")) return "#C44E52";
+    if (label.includes("Low")) return "#4C72B0";
+    if (label.includes("Medium")) return "#55A868";
+    if (label.includes("High")) return "#C44E52";
     return "#E83E8C";
   }
 
@@ -203,14 +203,13 @@
       {#each series as s (s.label)}
         {#each s.values as v (s.label + "-" + v.x)}
           <circle
-            cx={xScale(v.x)}
-            cy={yScale(v.value)}
-            r="2"
-            fill={getSeriesColor(s.label)}
-            stroke={getSeriesColor(s.label)}
-            stroke-width="1"
-            opacity="0.55"
-          />
+          cx={xScale(v.x)}
+          cy={yScale(v.value)}
+          r="1.5"
+          fill={getSeriesColor(s.label)}
+          stroke="none"
+          opacity="0.2"
+        />
         {/each}
       {/each}
     </g>

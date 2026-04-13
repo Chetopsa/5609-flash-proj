@@ -152,7 +152,7 @@
       </p>
       <p>
         The groups include low, mid, and high volume runners based on average weekly run frequency.
-        Low is the 10th percentile, mid is the middle 80%, and high is the 90th percentile and above.
+        Low is the 0–33rd percentile range, mid is the 33–67th range, and high is the 67–100th range.
       </p>
     </section>
 

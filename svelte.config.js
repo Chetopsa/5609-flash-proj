@@ -18,7 +18,7 @@ const config = {
 			strictz: false
 		}),
 		paths: {
-			base: process.argv.includes('dev') ? '' : '/my-vis-5609'
+			base: process.argv.includes('dev') ? '' : '/5609-flash-proj'
 		}
 	}
 };

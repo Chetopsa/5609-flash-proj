@@ -239,7 +239,7 @@
           } as TRun;
         }),
 
-        d3.csv("/trajectory_individual.csv", (row) => ({
+        d3.csv("./trajectory_individual.csv", (row) => ({
           athlete: (row["athlete"] ?? "").trim(),
           total_runs: Number(row["total_runs"]),
           group: (row["group"] ?? "").trim()

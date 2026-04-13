@@ -212,7 +212,7 @@
 
     try {
       const [rawRuns, rawIndividuals] = await Promise.all([
-        d3.csv("/annotated-running-races-with-elevation.csv", (row) => {
+        d3.csv("./annotated-running-races-with-elevation.csv", (row) => {
           const athlete = (row["athlete"] ?? "").trim();
           const timestampRaw = (row["timestamp"] ?? "").trim();
           const timestamp = parseTime(timestampRaw);

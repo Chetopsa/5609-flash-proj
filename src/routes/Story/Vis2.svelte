@@ -18,7 +18,7 @@
 		avgRunsPerWeek: number;
 	};
 
-	const csvUrl = "/annotated-running-races.csv";
+	const csvUrl = "./annotated-running-races.csv";
 
 	let allRows: RaceRow[] = $state([]);
 	let selectedAthlete = $state("");

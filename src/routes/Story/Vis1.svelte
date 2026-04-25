@@ -14,6 +14,7 @@
   let activeData: TTrajectory[] = [];
   let selectedAthlete: string | null = null;
   let progress = 0;
+  let userControl = false;
 
   async function loadCsv() {
     try {
@@ -123,6 +124,9 @@
   $: spotlightGroup = inShowcasePhase ? (showcaseRunner?.group ?? scrollPhase) : scrollPhase;
 
   $: manualSelectionUnlocked = progress >= 97;
+  $: if (progress >= 97) {
+    userControl = true;
+  }
   $: effectiveSelectedAthlete = manualSelectionUnlocked && selectedAthlete ? selectedAthlete : scrollRunner;
 
   $: scrollMaxRuns =
@@ -134,11 +138,11 @@
 
   $: roundedScrollMaxRuns = Math.round(scrollMaxRuns / 10) * 10;
   $: {
-    if (maxRuns !== roundedScrollMaxRuns) {
+    if (!userControl && maxRuns !== roundedScrollMaxRuns) {
       maxRuns = roundedScrollMaxRuns;
       updateChart();
     }
-  }
+}
 
   onMount(loadCsv);
 </script>
@@ -199,11 +203,29 @@
     <h1>Running more often makes you measurably faster</h1>
     <div class="controls">
       <div class="control-row">
-        <span>Runs 1 to <strong>{maxRuns}</strong></span>
+        <span>
+          Runs 1 to <strong>{maxRuns}</strong>
+          {#if !userControl}
+            <small style="color:#888;">(scroll controlled)</small>
+          {/if}
+        </span>
+
+        <button
+          class="toggle-btn"
+          on:click={() => userControl = !userControl}
+        >
+          {userControl ? "Lock to scroll" : "Adjust runs manually"}
+        </button>
         <input
-          type="range" min="10" max="500" step="10"
-          value={maxRuns} on:input={setMaxRuns}
-          disabled
+          type="range"
+          min="10"
+          max="500"
+          step="10"
+          bind:value={maxRuns}
+          on:input={(e) => {
+            userControl = true;
+            setMaxRuns(e);
+          }}
         />
       </div>
 

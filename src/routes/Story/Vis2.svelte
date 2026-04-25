@@ -26,6 +26,7 @@
 	let xMax = $state(500);          // slider: show runs 1 … xMax
 	let loadError = $state<string | null>(null);
 	let progress = $state(0);
+	
 
 	// Interaction state
 	let hoveredRunIdx = $state<number | null>(null);
@@ -382,9 +383,10 @@
 	const progressT = $derived(clamp01(progress / 100));
 	const easedProgressT = $derived(progressT * progressT * (3 - 2 * progressT));
 	const scrollMaxRuns = $derived(Math.round(lerp(40, 500, easedProgressT) / 10) * 10);
+	let userOverride = $state(false);
 
 	$effect(() => {
-		if (xMax !== scrollMaxRuns) {
+		if (!userOverride && xMax !== scrollMaxRuns) {
 			xMax = scrollMaxRuns;
 			pinnedRunIdx = null;
 			hoveredRunIdx = null;
@@ -476,6 +478,7 @@
 					max="500"
 					step="1"
 					bind:value={xMax}
+					oninput={() => { userOverride = true; }}
 				/>
 				<span class="slider-val">{xMax}</span>
 			</div>

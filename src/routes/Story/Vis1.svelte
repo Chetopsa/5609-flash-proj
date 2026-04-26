@@ -15,6 +15,7 @@
   let activeData: TTrajectory[]      = [];
   let selectedAthlete: string | null = null;
   let progress = 0;
+  let userControl = false;
 
   async function loadCsv() {
     try {
@@ -171,7 +172,7 @@
       maxRuns = roundedScrollMaxRuns;
       updateChart();
     }
-  }
+}
 
   onMount(loadCsv);
 </script>

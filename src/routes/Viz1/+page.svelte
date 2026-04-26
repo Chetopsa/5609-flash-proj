@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import type { TTrajectory, TIndividual } from "../../types";
   import PaceTrend from "$lib/PaceTrend.svelte";
-  import VolumeSummary from "$lib/VolumeSummary.svelte";
+  import VolumeSummary from "$lib/VolumeOverview.svelte";
 
   let data: TTrajectory[] = [];
   let individuals: TIndividual[] = [];

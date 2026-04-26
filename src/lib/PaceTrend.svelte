@@ -15,16 +15,15 @@
   const innerWidth  = width  - margin.left - margin.right;
   const innerHeight = height - margin.top  - margin.bottom;
 
-  // high = orange (most runs/week), mid = cyan, low = pink (fewest runs/week)
+  // high = red, mid = green, low = blue
   const GROUP_COLOR: Record<string, { line: string; band: string; label: string }> = {
-    low:  { line: "#d4537e", band: "rgba(212,83,126,0.12)",  label: "Low Volume"    },
-    mid:  { line: "#26c6da", band: "rgba(38,198,218,0.12)",  label: "Mid Volume"    },
-    high: { line: "#ff6f00", band: "rgba(255,111,0,0.12)",   label: "High Volume"   },
+    low:  { line: "#4e90d9", band: "rgba(78,144,217,0.12)",  label: "Low Volume"  },
+    mid:  { line: "#2ec495", band: "rgba(46,196,149,0.12)",  label: "Mid Volume"  },
+    high: { line: "#f05a5a", band: "rgba(240,90,90,0.12)",   label: "High Volume" },
   };
 
   const GROUPS = ["low", "mid", "high"] as const;
 
-  // colour for the selected athlete line — use their group colour
   function athleteColor(grp: string | undefined): string {
     return grp ? (GROUP_COLOR[grp]?.line ?? "#888") : "#888";
   }
@@ -172,7 +171,7 @@
       <text transform="rotate(-90)" x={-innerHeight / 2} y={-36}
         text-anchor="middle" font-size="20" fill="#888">Pace (min/km) — lower is faster</text>
 
-      <!-- band + median per group (fade when a runner is selected) -->
+      <!-- band + median per group -->
       {#each GROUPS as grp}
         {@const { line: lc, band: bc } = GROUP_COLOR[grp]}
         {@const pts = agg[grp] ?? []}
@@ -187,7 +186,7 @@
         {/if}
       {/each}
 
-      <!-- selected athlete line — solid dark, drawn on top -->
+      <!-- selected athlete line -->
       {#if selectedRuns.length > 1}
         <path
           d={athleteLineGen(selectedRuns) ?? ""}

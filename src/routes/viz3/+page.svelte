@@ -375,8 +375,8 @@
     <div class="chart-card">
       <ElevationImprovementScatter
         points={improvementPoints}
-        width={980}
-        height={520}
+        width={740}
+        height={460}
       />
     </div>
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Vis1 from "./Vis1.svelte";
-  import Vis2 from "./Vis2.svelte";
-  import Vis3 from "./Vis3.svelte";
-  import Conclusion from "./Conclusion.svelte";
-  import IntroTitleCard from "./IntroTitleCard.svelte";
+  import Vis1 from "./Story/Vis1.svelte";
+  import Vis2 from "./Story/Vis2.svelte";
+  import Vis3 from "./Story/Vis3.svelte";
+  import Conclusion from "./Story/Conclusion.svelte";
+  import IntroTitleCard from "./Story/IntroTitleCard.svelte";
 </script>
 
 <div class="container">

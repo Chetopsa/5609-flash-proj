@@ -31,6 +31,29 @@
 
 <style>
 
+:global(body) {
+    margin: 0;
+    padding: 0;
+    /* A "Road & Energy" gradient: Dark asphalt to a sunrise/safety orange */
+    background: linear-gradient(
+      135deg, 
+      #59cdf0 0%,    /* Asphalt */    /* 59cdf0 */
+      #2d3436 50%,   /* Pavement */   /* 59cdf0 */
+      #d35400 100%   /* Safety Orange /* 59cdf0 */     
+    );
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  .page-wrapper {
+    min-height: 100vh;
+    /* A gradient reminiscent of a sunrise run or athletic gear */
+    background: linear-gradient(90deg, #74a6f1 0%, #6398ee 100%);
+    background-attachment: fixed;
+    padding: 1px 0; /* Prevents margin collapse */
+  }
+
   .container {
     width: min(1200px, 94vw);
     margin: 1.25rem auto 2rem;
@@ -41,10 +64,14 @@
   }
 
   .section-card {
-    border: 1px solid #e5ebf4;
-    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(229, 235, 244, 0.5);
+    /* Glassmorphism effect: high blur and semi-transparent white */
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: 12px;
     padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   }
 
   .viz-section {

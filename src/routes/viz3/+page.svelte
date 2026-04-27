@@ -330,9 +330,7 @@
     individuals.find((d) => d.athlete === selectedRunner)?.total_runs ?? 0
   );
 
-  const mainTitle = $derived(
-    "Does Elevation Affect Heart Rate?"
-  );
+  const mainTitle = $derived("");
 
   const mainYLabel = $derived(
     "Heart Rate (bpm)"
@@ -342,9 +340,7 @@
     "Each line shows average heart rate by run number for the low, medium, and high elevation groups. Smoothing helps reveal the overall trend."
   );
 
-  const individualTitle = $derived(
-    "Individual Runner Elevation Gain"
-  );
+  const individualTitle = $derived("");
 
   const individualYLabel = $derived(
     "Elevation Gain (m)"
@@ -404,6 +400,11 @@
       />
     </div>
 
+    <h2>Does elevation affect heart rate?</h2>
+  <p>
+    Explore how heart rate differs across elevation groups over time.
+  </p>
+
     {#if groupHrSeries.length === 0}
       <p>No processed heart rate data available.</p>
     {:else}
@@ -420,6 +421,13 @@
         />
       </div>
 
+      <div class="section-transition">
+        <h2>Want a closer look at each individual runner's elevation gain?</h2>
+        <p>
+          Select a runner below to see how their elevation gain changes across runs.
+        </p>
+      </div>
+      
       <div class="controls supplemental-controls">
         <label for="runner-select">Runner:</label>
         <select id="runner-select" bind:value={selectedRunner}>
@@ -501,4 +509,19 @@
   .error {
     color: #b00020;
   }
+
+.section-transition{
+  margin:56px 0 16px;
+  max-width:850px;
+}
+
+.section-transition h2{
+  font-size:1.35rem;
+  margin-bottom:8px;
+}
+
+.section-transition p{
+  line-height:1.5;
+  color:#444;
+}
 </style>

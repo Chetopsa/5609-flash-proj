@@ -353,7 +353,7 @@
     stroke-opacity: 0.13;
   }
 
-  .tooltip rect {
+  .pinned-box rect {
     fill: white;
     stroke: #ddd;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.10));
@@ -388,5 +388,45 @@
     font-size: 0.88rem;
     color: #888;
     max-width: 820px;
+  }
+
+  circle {
+    transition:
+      r 0.25s ease,
+      opacity 0.25s ease,
+      stroke-width 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .pinned-point {
+    animation: pulseScatter 1.3s ease-in-out infinite alternate;
+  }
+
+  .pinned-box {
+    animation: fadeIn 0.6s ease;
+  }
+
+  @keyframes pulseScatter {
+    from {
+      opacity: 0.75;
+      stroke-width: 1.5;
+    }
+
+    to {
+      opacity: 1;
+      stroke-width: 3;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>

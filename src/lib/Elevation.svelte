@@ -11,7 +11,7 @@
     values: LinePoint[];
   };
 
-  type MetricType = "pace" | "hr" | "elevation";
+  type MetricType = "pace" | "hr";
 
   type Props = {
     series: Series[];
@@ -108,6 +108,7 @@
   );
 
   let hoverX = $state<number | null>(null);
+  let pinnedRun: number | null = $state(null);
 
   function handleSvgMouseMove(event: MouseEvent) {
     if (!svgEl) return;
@@ -127,6 +128,19 @@
     hoverX !== null ? Math.round(xScale.invert(hoverX)) : null
   );
 
+  function handleSvgClick() {
+    if (hoverRun !== null) {
+      pinnedRun = pinnedRun === hoverRun ? null : hoverRun;
+    }
+  }
+
+  function handleSvgKeydown(event: KeyboardEvent) {
+    if ((event.key === "Enter" || event.key === " ") && hoverRun !== null) {
+      event.preventDefault();
+      handleSvgClick();
+    }
+  }
+
   function getClosestPoint(points: LinePoint[], run: number): LinePoint | null {
     const revealed = points.filter((p) => p.x <= revealedXMax);
     if (!revealed.length) return null;
@@ -145,6 +159,7 @@
           }))
           .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
   );
+
 
   // Pixel x of the reveal boundary
   const revealPixelX = $derived(
@@ -194,6 +209,15 @@
             stroke-opacity="0.14"
           />
         {/each}
+
+        <text
+          x={usable.right + 48}
+          y={usable.top + 262}
+          font-size="10.5"
+          fill="#666"
+        >
+          Click the same run again to unpin
+        </text>
       </g>
 
       <!-- Vertical grid lines -->
@@ -362,8 +386,8 @@
 
   .lines path {
     vector-effect: non-scaling-stroke;
+    transition: opacity 0.25s ease;
   }
-
   .tooltip rect {
     fill: white;
     stroke: #ddd;

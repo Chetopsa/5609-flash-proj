@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import Elevation from "$lib/Elevation.svelte";
   import ElevationImprovementScatter from "$lib/ElevationScatter.svelte";
+  import IndividualElevation from "$lib/IndividualElevation.svelte";
 
   type TRun = {
     athlete: string;
@@ -329,9 +330,7 @@
     individuals.find((d) => d.athlete === selectedRunner)?.total_runs ?? 0
   );
 
-  const mainTitle = $derived(
-    "Does elevation affect heart rate?"
-  );
+  const mainTitle = $derived("");
 
   const mainYLabel = $derived(
     "Heart Rate (bpm)"
@@ -341,16 +340,14 @@
     "Each line shows average heart rate by run number for the low, medium, and high elevation groups. Smoothing helps reveal the overall trend."
   );
 
-  const individualTitle = $derived(
-    "Individual Runner Elevation Gain over Run Number"
-  );
+  const individualTitle = $derived("");
 
   const individualYLabel = $derived(
     "Elevation Gain (m)"
   );
 
   const individualNote = $derived(
-    `This chart shows how each runner’s elevation gain changes across runs 1–${maxRunNumber}.`
+    `This chart shows how each runner’s elevation gain changes across runs 1–${maxRunNumber}. Hover to inspect.`
   );
 
   $effect(() => {
@@ -363,11 +360,11 @@
 </script>
 
 <div class="container">
-  <h1>Does incorporating elevation give improvement?</h1>
+  <h1>Does Elevation Gain Support Pace Improvement?</h1>
 
   <p class="description">
     This chart is intended to show whether runners with more average elevation gain per run improved their pace more over time.
-    The supporting charts show heart rate and individual elevation trends across run number.
+    The supporting charts show heart rate and individual elevation trends across run number. Click on a point to inspect.
   </p>
 
   {#if loading}
@@ -403,6 +400,11 @@
       />
     </div>
 
+    <h2>Does elevation affect heart rate?</h2>
+  <p>
+    Explore how heart rate differs across elevation groups over time.
+  </p>
+
     {#if groupHrSeries.length === 0}
       <p>No processed heart rate data available.</p>
     {:else}
@@ -419,6 +421,13 @@
         />
       </div>
 
+      <div class="section-transition">
+        <h2>Want a closer look at each individual runner's elevation gain?</h2>
+        <p>
+          Select a runner below to see how their elevation gain changes across runs.
+        </p>
+      </div>
+      
       <div class="controls supplemental-controls">
         <label for="runner-select">Runner:</label>
         <select id="runner-select" bind:value={selectedRunner}>
@@ -432,17 +441,16 @@
 
       {#if displayedIndividualSeries.length > 0}
         <div class="chart-card supplemental">
-          <Elevation
-            series={displayedIndividualSeries}
-            width={980}
-            height={520}
-            title={individualTitle}
-            yLabel={individualYLabel}
-            note={individualNote}
-            metric="elevation"
-            legendTitle="Runner"
-            totalRuns={selectedRunnerTotalRuns}
-          />
+          <IndividualElevation
+          series={displayedIndividualSeries}
+          width={980}
+          height={520}
+          title={individualTitle}
+          yLabel={individualYLabel}
+          note={individualNote}
+          legendTitle="Runner"
+          totalRuns={selectedRunnerTotalRuns}
+        />
         </div>
       {/if}
     {/if}
@@ -501,4 +509,19 @@
   .error {
     color: #b00020;
   }
+
+.section-transition{
+  margin:56px 0 16px;
+  max-width:850px;
+}
+
+.section-transition h2{
+  font-size:1.35rem;
+  margin-bottom:8px;
+}
+
+.section-transition p{
+  line-height:1.5;
+  color:#444;
+}
 </style>

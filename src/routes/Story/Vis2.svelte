@@ -412,16 +412,30 @@
 		<section class="step">
 			<h2>What this chart shows</h2>
 			<p>
-				X-axis is cumulative run number (1 to 500). You can compare either speed or efficiency
-				across low, medium, and high consistency groups.
+				X-axis is cumulative run number (1 to 500). You can compare either speed or efficiency across low, medium, and high consistency groups.
+				<br />We group athletes by percentiles of their average weekly training load equal percentiles across all their runs, then color runs by that group.
+				<br />Each dot is either an individual run (when an athlete is selected) or the average across all athletes at that run number within each group (when no athlete is selected). 
+				<br />Trend lines are dashed. Hover to inspect values, click to pin a run index and compare groups in the side panel.
 			</p>
 		</section>
 
 		<section class="step">
 			<h2>Patterns Arise</h2>
 			<p>
-				As more runs are logged we can see patterns in the data. For example, the high-consistency group (red) 
-				tends to have higher speed and efficiency, especially in later runs.
+				As more runs are logged we can see patterns in the data. For example, the high-consistency group (red) tends to have higher speed and efficiency, especially in later runs.
+				<br />As you scroll you notice more runs appearing on the chart, and the trend lines adjusting as the averages update with more data. 
+				
+				<br /> The 3 different volume groups show average speed and efficiency differences that become more apparent with more runs.
+				<br /> The 3 different run volumes are based on average runs per week.
+				<br />There are more points of references for runner groups that run more on average which may contribute to more stable trend lines, and better overall data.
+				<br />You can see low volume runners cut of around 330, that the average is centered at the beginning and becomes more spread out the longer people run.
+				<br />Averages are more clustered together at the beginning since there are more points of reference to average and things get more spread out as there less runners to average.
+				
+				<br />For the high volume runners We see that there is slight improvement in speed and efficiency over time. 
+				<br />For the medium volume runners we have decreasing speed and same level of efficiency for more runners.
+				<br />For the low volume runners they have the largest increase speed and efficiency, over time but lowest number of runs.
+
+				<br />This illustrates how consistency (training load) can shape performance outcomes over time.
 			</p>
 		</section>
 
@@ -429,6 +443,9 @@
 			<h2>Click to pin a run</h2>
 			<p>
 				Pin a run index and compare group values in the side panel.
+				<br />Are run index is able to display a few information such as run number, average speed/efficiency  for each of the 3 groups, and the number of runs that average is based on.
+				<br />Make note that low volume runners average only go up to 341 runs, and that the number of runs that average is based on decreases as we go to higher run indices.
+				<br />The scroll bar can be adjusted to change the range of runs we see, which helps us look at runners with lower run counts and see more of their data.
 			</p>
 		</section>
 	</div>
@@ -499,7 +516,7 @@
 						at that run number within each percentile group.
 					{/if}
 					{yMode === "speed"
-						? " Speed = distance (m) ÷ elapsed time (s) × 3.6."
+						? " Speed = (distance (m) ÷ elapsed time (s)) × 3.6."
 						: " Efficiency = speed (km/h) ÷ avg heart rate (bpm)."}
 					Hover to inspect · click to pin.
 				</p>

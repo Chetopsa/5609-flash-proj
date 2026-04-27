@@ -4,6 +4,7 @@
   import { Scroll } from "$lib";
   import Elevation from "$lib/Elevation.svelte";
   import ElevationImprovementScatter from "$lib/ElevationScatter.svelte";
+  import IndividualElevation from "$lib/IndividualElevation.svelte";
 
   type TRun = {
     athlete: string;

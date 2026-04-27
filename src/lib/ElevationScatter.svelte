@@ -22,7 +22,7 @@
   const width = $derived(props.width ?? 980);
   const height = $derived(props.height ?? 520);
 
-  const margin = { top: 50, right: 190, bottom: 90, left: 90 };
+  const margin = { top: 50, right: 300, bottom: 90, left: 90 };
   const groups = ["Low", "Medium", "High"];
 
   const usable = $derived({
@@ -100,6 +100,18 @@
   }
 
   let hovered: ImprovementPoint | null = $state(null);
+  let pinned: ImprovementPoint | null = $state(null);
+
+  function pinPoint(point: ImprovementPoint) {
+    pinned = pinned?.athlete === point.athlete ? null : point;
+  }
+
+  function handlePointKeydown(event: KeyboardEvent, point: ImprovementPoint) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      pinPoint(point);
+    }
+  }
 </script>
 
 <p class="note">
@@ -136,13 +148,19 @@
       <circle
         cx={jitterX(group, p.athlete)}
         cy={yScale(p.improvementPct)}
-        r={hovered?.athlete === p.athlete ? 7 : 4.5}
+        r={hovered?.athlete === p.athlete || pinned?.athlete === p.athlete ? 7 : 4.5}
         fill={getColor(group)}
-        opacity="0.42"
-        stroke="white"
-        stroke-width="1.2"
+        opacity={pinned?.athlete === p.athlete ? "0.95" : "0.42"}
+        stroke={pinned?.athlete === p.athlete ? "#222" : "white"}
+        stroke-width={pinned?.athlete === p.athlete ? "2.2" : "1.2"}
         onmouseenter={() => hovered = p}
         onmouseleave={() => hovered = null}
+        onclick={() => pinPoint(p)}
+        onkeydown={(event) => handlePointKeydown(event, p)}
+        role="button"
+        tabindex="0"
+        aria-label={`Pin runner ${p.athlete}`}
+        style="cursor: pointer;"
       />
     {/each}
 
@@ -152,13 +170,19 @@
       <circle
         cx={jitterX(group, p.athlete)}
         cy={p.improvementPct < -45 ? usable.bottom - 6 : usable.top + 6}
-        r={hovered?.athlete === p.athlete ? 7 : 4.5}
+        r={hovered?.athlete === p.athlete || pinned?.athlete === p.athlete ? 7 : 4.5}
         fill={getColor(group)}
-        opacity="0.3"
-        stroke="#333"
-        stroke-width="1"
+        opacity={pinned?.athlete === p.athlete ? "0.95" : "0.3"}
+        stroke={pinned?.athlete === p.athlete ? "#222" : "#333"}
+        stroke-width={pinned?.athlete === p.athlete ? "2.2" : "1"}
         onmouseenter={() => hovered = p}
         onmouseleave={() => hovered = null}
+        onclick={() => pinPoint(p)}
+        onkeydown={(event) => handlePointKeydown(event, p)}
+        role="button"
+        tabindex="0"
+        aria-label={`Pin runner ${p.athlete}`}
+        style="cursor: pointer;"
       />
     {/each}
 
@@ -249,34 +273,38 @@
       <text x="34" y="86" font-size="12">No change</text>
     </g>
 
-    {#if hovered}
-      <g class="tooltip" pointer-events="none">
+    {#if pinned}
+      <g class="pinned-box">
         <rect
-          x={usable.left + 15}
-          y={usable.top + 15}
-          width="330"
-          height="120"
-          rx="8"
+          x={usable.right + 28}
+          y={usable.top + 118}
+          width="265"
+          height="168"
+          rx="10"
         />
-
-        <text x={usable.left + 30} y={usable.top + 38} font-size="12" font-weight="700">
-          Runner #{hovered.athlete}
+    
+        <text x={usable.right + 45} y={usable.top + 145} font-size="14" font-weight="700">
+          Runner #{pinned.athlete}
         </text>
-
-        <text x={usable.left + 30} y={usable.top + 58} font-size="12">
-          Group: {hovered.group}
+    
+        <text x={usable.right + 45} y={usable.top + 172} font-size="12">
+          Group: {pinned.group}
         </text>
-
-        <text x={usable.left + 30} y={usable.top + 78} font-size="12">
-          Improvement: {hovered.improvementPct.toFixed(1)}%
+    
+        <text x={usable.right + 45} y={usable.top + 194} font-size="12">
+          Improvement: {pinned.improvementPct.toFixed(1)}%
         </text>
-
-        <text x={usable.left + 30} y={usable.top + 98} font-size="12">
-          First-half pace: {hovered.firstPace.toFixed(2)} → Second-half pace: {hovered.lastPace.toFixed(2)}
+    
+        <text x={usable.right + 45} y={usable.top + 216} font-size="12">
+          Pace: {pinned.firstPace.toFixed(2)} → {pinned.lastPace.toFixed(2)}
         </text>
-
-        <text x={usable.left + 30} y={usable.top + 118} font-size="12">
-          Avg elevation: {hovered.avgElevation.toFixed(1)} m/run
+    
+        <text x={usable.right + 45} y={usable.top + 238} font-size="12">
+          Average elevation: {pinned.avgElevation.toFixed(1)} m/run
+        </text>
+    
+        <text x={usable.right + 45} y={usable.top + 268} font-size="10.5" fill="#666">
+          Click same point again to unpin
         </text>
       </g>
     {/if}
@@ -297,8 +325,48 @@
     stroke-opacity: 0.12;
   }
 
-  .tooltip rect {
+  .pinned-box rect {
     fill: white;
     stroke: #ccc;
+  }
+
+  circle {
+    transition:
+      r 0.25s ease,
+      opacity 0.25s ease,
+      stroke-width 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .pinned-point {
+    animation: pulseScatter 1.3s ease-in-out infinite alternate;
+  }
+
+  .pinned-box {
+    animation: fadeIn 0.6s ease;
+  }
+
+  @keyframes pulseScatter {
+    from {
+      opacity: 0.75;
+      stroke-width: 1.5;
+    }
+
+    to {
+      opacity: 1;
+      stroke-width: 3;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>

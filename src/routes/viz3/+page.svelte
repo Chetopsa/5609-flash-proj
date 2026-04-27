@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import Elevation from "$lib/Elevation.svelte";
   import ElevationImprovementScatter from "$lib/ElevationScatter.svelte";
+  import IndividualElevation from "$lib/IndividualElevation.svelte";
 
   type TRun = {
     athlete: string;
@@ -350,7 +351,7 @@
   );
 
   const individualNote = $derived(
-    `This chart shows how each runner’s elevation gain changes across runs 1–${maxRunNumber}.`
+    `This chart shows how each runner’s elevation gain changes across runs 1–${maxRunNumber}. Hover to inspect.`
   );
 
   $effect(() => {
@@ -367,7 +368,7 @@
 
   <p class="description">
     This chart is intended to show whether runners with more average elevation gain per run improved their pace more over time.
-    The supporting charts show heart rate and individual elevation trends across run number.
+    The supporting charts show heart rate and individual elevation trends across run number. Click on a point to inspect.
   </p>
 
   {#if loading}
@@ -432,17 +433,16 @@
 
       {#if displayedIndividualSeries.length > 0}
         <div class="chart-card supplemental">
-          <Elevation
-            series={displayedIndividualSeries}
-            width={980}
-            height={520}
-            title={individualTitle}
-            yLabel={individualYLabel}
-            note={individualNote}
-            metric="elevation"
-            legendTitle="Runner"
-            totalRuns={selectedRunnerTotalRuns}
-          />
+          <IndividualElevation
+          series={displayedIndividualSeries}
+          width={980}
+          height={520}
+          title={individualTitle}
+          yLabel={individualYLabel}
+          note={individualNote}
+          legendTitle="Runner"
+          totalRuns={selectedRunnerTotalRuns}
+        />
         </div>
       {/if}
     {/if}

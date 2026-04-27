@@ -11,7 +11,7 @@
     values: LinePoint[];
   };
 
-  type MetricType = "pace" | "hr" | "elevation";
+  type MetricType = "pace" | "hr";
 
   type Props = {
     series: Series[];
@@ -98,12 +98,11 @@
   });
 
   const unitText = $derived(
-    metric === "pace" ? "min/km" :
-    metric === "hr" ? "bpm" :
-    "m"
+    metric === "pace" ? "min/km" : "bpm"
   );
 
   let hoverX = $state<number | null>(null);
+  let pinnedRun: number | null = $state(null);
 
   function handleSvgMouseMove(event: MouseEvent) {
     if (!svgEl) return;
@@ -131,11 +130,26 @@
     hoverX !== null ? Math.round(xScale.invert(hoverX)) : null
   );
 
+  function handleSvgClick() {
+    if (hoverRun !== null) {
+      pinnedRun = pinnedRun === hoverRun ? null : hoverRun;
+    }
+  }
+
+  function handleSvgKeydown(event: KeyboardEvent) {
+    if ((event.key === "Enter" || event.key === " ") && hoverRun !== null) {
+      event.preventDefault();
+      handleSvgClick();
+    }
+  }
+
   function getClosestPoint(points: LinePoint[], run: number): LinePoint | null {
     if (!points.length) return null;
 
     return points.reduce((best, current) => {
-      return Math.abs(current.x - run) < Math.abs(best.x - run) ? current : best;
+      return Math.abs(current.x - run) < Math.abs(best.x - run)
+        ? current
+        : best;
     });
   }
 
@@ -146,6 +160,17 @@
           .map((s) => ({
             label: s.label,
             point: getClosestPoint(s.values, hoverRun)
+          }))
+          .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
+  );
+
+  const pinnedData = $derived(
+    pinnedRun === null
+      ? []
+      : series
+          .map((s) => ({
+            label: s.label,
+            point: getClosestPoint(s.values, pinnedRun)
           }))
           .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
   );
@@ -160,6 +185,11 @@
     {height}
     onmousemove={handleSvgMouseMove}
     onmouseleave={clearHover}
+    onclick={handleSvgClick}
+    onkeydown={handleSvgKeydown}
+    role="button"
+    tabindex="0"
+    aria-label="Click chart to pin a run number"
   >
     <g class="grid">
       {#each yScale.ticks(6) as tick}
@@ -223,7 +253,7 @@
         stroke="#888"
         stroke-width="1"
         stroke-dasharray="4,4"
-        opacity="0.8"
+        opacity="0.45"
       />
 
       {#each hoverData as d}
@@ -234,6 +264,30 @@
           fill={getSeriesColor(d.label)}
           stroke="white"
           stroke-width="1.5"
+        />
+      {/each}
+    {/if}
+
+    {#if pinnedRun !== null && pinnedData.length > 0}
+      <line
+        x1={xScale(pinnedRun)}
+        x2={xScale(pinnedRun)}
+        y1={usable.top}
+        y2={usable.bottom}
+        stroke="#222"
+        stroke-width="1"
+        stroke-dasharray="5,5"
+        opacity="0.65"
+      />
+
+      {#each pinnedData as d}
+        <circle
+          cx={xScale(d.point.x)}
+          cy={yScale(d.point.value)}
+          r="5"
+          fill={getSeriesColor(d.label)}
+          stroke="#222"
+          stroke-width="1.3"
         />
       {/each}
     {/if}
@@ -293,49 +347,46 @@
       {/if}
     </g>
 
-    {#if hoverRun !== null && hoverData.length > 0}
-      {@const boxX = Math.min(xScale(hoverRun) + 14, width - 280)}
-      {@const boxY = usable.top + 20}
-      {@const boxHeight = 34 + hoverData.length * 22}
-
-      <g class="tooltip" pointer-events="none">
+    {#if pinnedRun !== null && pinnedData.length > 0}
+      <g class="pinned-box">
         <rect
-          x={boxX}
-          y={boxY}
-          width="260"
-          height={boxHeight}
-          rx="8"
+          x={usable.right + 30}
+          y={usable.top + 140}
+          width="250"
+          height="140"
+          rx="10"
           fill="white"
           stroke="#ccc"
         />
 
         <text
-          x={boxX + 12}
-          y={boxY + 20}
-          font-size="12"
+          x={usable.right + 48}
+          y={usable.top + 165}
+          font-size="15"
           font-weight="700"
-          fill="#333"
         >
-          Run Number: {hoverRun}
+          Run #{pinnedRun}
         </text>
 
-        {#each hoverData as d, i}
-          <rect
-            x={boxX + 12}
-            y={boxY + 30 + i * 22}
-            width="10"
-            height="10"
-            fill={getSeriesColor(d.label)}
-          />
+        {#each pinnedData as d, i}
           <text
-            x={boxX + 28}
-            y={boxY + 39 + i * 22}
+            x={usable.right + 48}
+            y={usable.top + 193 + i * 22}
             font-size="12"
-            fill="#333"
+            fill={getSeriesColor(d.label)}
           >
-            {d.label}: {d.point.value.toFixed(2)} {unitText}
+            ■ {d.label}: {d.point.value.toFixed(2)} {unitText}
           </text>
         {/each}
+
+        <text
+          x={usable.right + 48}
+          y={usable.top + 262}
+          font-size="10.5"
+          fill="#666"
+        >
+          Click the same run again to unpin
+        </text>
       </g>
     {/if}
   </svg>
@@ -344,5 +395,29 @@
 <style>
   .lines path {
     vector-effect: non-scaling-stroke;
+    transition: opacity 0.25s ease;
   }
-</style>
+  
+  circle {
+    transition:
+      r 0.2s ease,
+      opacity 0.2s ease,
+      stroke-width 0.2s ease;
+  }
+  
+  .pinned-box {
+    animation: fadeIn 0.6s ease;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity:0;
+      transform: translateY(4px);
+    }
+  
+    to {
+      opacity:1;
+      transform: translateY(0);
+    }
+  }
+  </style>

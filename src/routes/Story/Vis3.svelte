@@ -331,7 +331,7 @@
   );
 
   const mainTitle = $derived(
-    "Does elevation affect heart rate?"
+    "Does Elevation Affect Heart Rate?"
   );
 
   const mainYLabel = $derived(
@@ -343,7 +343,7 @@
   );
 
   const individualTitle = $derived(
-    "Individual Runner Elevation Gain over Run Number"
+    "Individual Runner Elevation Gain"
   );
 
   const individualYLabel = $derived(
@@ -364,7 +364,7 @@
 </script>
 
 <div class="container">
-  <h1>Does incorporating elevation give improvement?</h1>
+  <h1>Does Elevation Gain Support Pace Improvement?</h1>
 
   <p class="description">
     This chart is intended to show whether runners with more average elevation gain per run improved their pace more over time.

@@ -381,8 +381,8 @@
             <div class="chart-card-inner">
               <ElevationImprovementScatter
                 points={improvementPoints}
-                width={780}
-                height={520}
+                width={650}
+                height={330}
                 scrollProgress={scatterScrollProgress}
               />
             </div>
@@ -510,8 +510,8 @@
               <div class="chart-card-inner">
                 <Elevation
                   series={groupHrSeries}
-                  width={780}
-                  height={520}
+                  width={650}
+                  height={330}
                   title="Average Heart Rate by Elevation Group"
                   yLabel="Heart Rate (bpm)"
                   note={mainNote}

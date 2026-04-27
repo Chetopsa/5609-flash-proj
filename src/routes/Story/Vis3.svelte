@@ -844,28 +844,13 @@
 
   /* ── Finding box ──────────────────────────────────────────────────────── */
   .finding-box {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #f7f8fa;
-    border-left: 3px solid #4C72B0;
+    background: #fef9f0;
+    border-left: 3px solid #e8a838;
     border-radius: 6px;
-    padding: 10px 14px;
-    font-size: 0.9rem;
+    padding: 12px 16px;
+    font-size: 0.91rem;
     color: #333;
-    line-height: 1.35;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-
-  .finding-box span:last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .finding-icon {
-    flex-shrink: 0;
+    line-height: 1.6;
   }
 
   /* ── Individual section ───────────────────────────────────────────────── */

@@ -304,7 +304,7 @@
         </text>
     
         <text x={usable.right + 45} y={usable.top + 268} font-size="10.5" fill="#666">
-          Click same point again to unpin
+          Click the same point again to unpin
         </text>
       </g>
     {/if}

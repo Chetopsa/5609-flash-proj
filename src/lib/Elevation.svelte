@@ -29,8 +29,8 @@
   const props = $props<Props>();
 
   const series = $derived(props.series);
-  const width = $derived(props.width ?? 900);
-  const height = $derived(props.height ?? 470);
+  const width = $derived(props.width ?? 760);
+  const height = $derived(props.height ?? 430);
   const title = $derived(props.title ?? "Run Trends");
   const yLabel = $derived(props.yLabel ?? "Value");
   const note = $derived(props.note ?? "");
@@ -39,7 +39,7 @@
   const totalRuns = $derived(props.totalRuns ?? null);
   const scrollProgress = $derived(props.scrollProgress ?? 100);
 
-  const margin = { top: 50, right: 220, bottom: 70, left: 85 };
+  const margin = { top: 45, right: 30, bottom: 62, left: 78 };
 
   const usable = $derived({
     left: margin.left,
@@ -182,227 +182,177 @@
   {/if}
 
   {#if series.length}
-    <svg
-      bind:this={svgEl}
-      {width}
-      {height}
-      onmousemove={handleSvgMouseMove}
-      onmouseleave={clearHover}
-      onclick={handleSvgClick}
-    >
-      <defs>
-        <clipPath id={clipId}>
-          <rect
-            x={usable.left}
-            y={usable.top - 10}
-            width={Math.max(0, revealPixelX - usable.left)}
-            height={usable.bottom - usable.top + 20}
-          />
-        </clipPath>
-      </defs>
+    <div class="hr-layout">
+      <svg
+        bind:this={svgEl}
+        {width}
+        {height}
+        onmousemove={handleSvgMouseMove}
+        onmouseleave={clearHover}
+        onclick={handleSvgClick}
+      >
+        <defs>
+          <clipPath id={clipId}>
+            <rect
+              x={usable.left}
+              y={usable.top - 10}
+              width={Math.max(0, revealPixelX - usable.left)}
+              height={usable.bottom - usable.top + 20}
+            />
+          </clipPath>
+        </defs>
 
-      <!-- Horizontal grid lines -->
-      <g class="grid">
-        {#each yScale.ticks(6) as tick}
-          <line
-            x1={usable.left}
-            x2={usable.right}
-            y1={yScale(tick)}
-            y2={yScale(tick)}
-          />
-        {/each}
-      </g>
+        <g class="grid">
+          {#each yScale.ticks(6) as tick}
+            <line
+              x1={usable.left}
+              x2={usable.right}
+              y1={yScale(tick)}
+              y2={yScale(tick)}
+            />
+          {/each}
+        </g>
 
-      <!-- Vertical grid lines -->
-      <g class="grid">
-        {#each xScale.ticks(8) as tick}
+        <g class="grid">
+          {#each xScale.ticks(8) as tick}
+            <line
+              x1={xScale(tick)}
+              x2={xScale(tick)}
+              y1={usable.top}
+              y2={usable.bottom}
+              opacity="0.45"
+            />
+          {/each}
+        </g>
+
+        <g class="lines" clip-path={`url(#${clipId})`}>
+          {#each series as s (s.label)}
+            <path
+              d={lineGen(s.values) ?? ""}
+              fill="none"
+              stroke={getSeriesColor(s.label)}
+              stroke-width="2.2"
+              opacity={activeRun !== null ? 0.72 : 0.9}
+            />
+          {/each}
+        </g>
+
+        <g class="points" clip-path={`url(#${clipId})`}>
+          {#each series as s (s.label)}
+            {#each s.values as v (s.label + "-" + v.x)}
+              <circle
+                cx={xScale(v.x)}
+                cy={yScale(v.value)}
+                r="1.5"
+                fill={getSeriesColor(s.label)}
+                opacity="0.08"
+              />
+            {/each}
+          {/each}
+        </g>
+
+        {#if scrollProgress < 99}
           <line
-            x1={xScale(tick)}
-            x2={xScale(tick)}
+            x1={revealPixelX}
+            x2={revealPixelX}
             y1={usable.top}
             y2={usable.bottom}
-            opacity="0.45"
+            stroke="#bbb"
+            stroke-width="1.5"
+            stroke-dasharray="4,3"
+            opacity="0.7"
           />
-        {/each}
-      </g>
+        {/if}
 
-      <!-- Lines -->
-      <g class="lines" clip-path={`url(#${clipId})`}>
-        {#each series as s (s.label)}
-          <path
-            d={lineGen(s.values) ?? ""}
-            fill="none"
-            stroke={getSeriesColor(s.label)}
-            stroke-width="2.2"
-            opacity={activeRun !== null ? 0.72 : 0.9}
+        {#if activeRun !== null && activeData.length > 0}
+          <line
+            x1={xScale(activeRun)}
+            x2={xScale(activeRun)}
+            y1={usable.top}
+            y2={usable.bottom}
+            stroke={pinnedRun !== null ? "#333" : "#888"}
+            stroke-width={pinnedRun !== null ? "1.5" : "1"}
+            stroke-dasharray="4,4"
+            opacity="0.75"
           />
-        {/each}
-      </g>
 
-      <!-- Dots -->
-      <g class="points" clip-path={`url(#${clipId})`}>
-        {#each series as s (s.label)}
-          {#each s.values as v (s.label + "-" + v.x)}
+          {#each activeData as d}
             <circle
-              cx={xScale(v.x)}
-              cy={yScale(v.value)}
-              r="1.5"
-              fill={getSeriesColor(s.label)}
-              opacity="0.08"
+              cx={xScale(d.point.x)}
+              cy={yScale(d.point.value)}
+              r="5"
+              fill={getSeriesColor(d.label)}
+              stroke="white"
+              stroke-width="1.5"
             />
           {/each}
-        {/each}
-      </g>
+        {/if}
 
-      <!-- Reveal edge -->
-      {#if scrollProgress < 99}
-        <line
-          x1={revealPixelX}
-          x2={revealPixelX}
-          y1={usable.top}
-          y2={usable.bottom}
-          stroke="#bbb"
-          stroke-width="1.5"
-          stroke-dasharray="4,3"
-          opacity="0.7"
-        />
-      {/if}
+        <g transform={`translate(0, ${usable.bottom})`} bind:this={xAxis} />
+        <g transform={`translate(${usable.left}, 0)`} bind:this={yAxis} />
 
-      <!-- Active run crosshair + dots -->
-      {#if activeRun !== null && activeData.length > 0}
-        <line
-          x1={xScale(activeRun)}
-          x2={xScale(activeRun)}
-          y1={usable.top}
-          y2={usable.bottom}
-          stroke={pinnedRun !== null ? "#333" : "#888"}
-          stroke-width={pinnedRun !== null ? "1.5" : "1"}
-          stroke-dasharray="4,4"
-          opacity="0.75"
-        />
-
-        {#each activeData as d}
-          <circle
-            cx={xScale(d.point.x)}
-            cy={yScale(d.point.value)}
-            r="5"
-            fill={getSeriesColor(d.label)}
-            stroke="white"
-            stroke-width="1.5"
-          />
-        {/each}
-      {/if}
-
-      <!-- Axes -->
-      <g transform={`translate(0, ${usable.bottom})`} bind:this={xAxis} />
-      <g transform={`translate(${usable.left}, 0)`} bind:this={yAxis} />
-
-      <!-- Axis labels -->
-      <text
-        x={(usable.left + usable.right) / 2}
-        y={height - 14}
-        text-anchor="middle"
-        font-size="12"
-        fill="#444"
-      >
-        Run Number
-      </text>
-
-      <text
-        x="22"
-        y={(usable.top + usable.bottom) / 2}
-        text-anchor="middle"
-        font-size="12"
-        fill="#444"
-        transform={`rotate(-90, 22, ${(usable.top + usable.bottom) / 2})`}
-      >
-        {yLabel}
-      </text>
-
-      <!-- Legend -->
-      <g transform={`translate(${usable.right + 28}, ${usable.top + 20})`}>
-        <text x="0" y="0" font-size="12" font-weight="700" fill="#333">
-          {legendTitle}
+        <text
+          x={(usable.left + usable.right) / 2}
+          y={height - 12}
+          text-anchor="middle"
+          font-size="12"
+          fill="#444"
+        >
+          Run Number
         </text>
 
-        {#each labels as label, i (label)}
-          <rect
-            x="0"
-            y={14 + i * 22}
-            width="12"
-            height="12"
-            fill={getSeriesColor(label)}
-          />
-          <text x="18" y={24 + i * 22} font-size="12" fill="#333">
-            {label}
-          </text>
-        {/each}
+        <text
+          x="18"
+          y={(usable.top + usable.bottom) / 2}
+          text-anchor="middle"
+          font-size="12"
+          fill="#444"
+          transform={`rotate(-90, 18, ${(usable.top + usable.bottom) / 2})`}
+        >
+          {yLabel}
+        </text>
+      </svg>
 
-        {#if totalRuns !== null}
-          <text
-            x="0"
-            y={14 + labels.length * 22 + 16}
-            font-size="12"
-            font-weight="500"
-            fill="#666"
-          >
-            Total runs: {totalRuns}
-          </text>
+      <aside class="runner-panel" class:expanded={activeRun !== null}>
+        {#if activeRun !== null && activeData.length > 0}
+          <h3>Run #{activeRun}</h3>
+
+          <div class="detail-card no-border">
+            {#each activeData as d}
+              <p>
+                <span class="value-box" style={`background:${getSeriesColor(d.label)}`}></span>
+                <strong>{d.label}:</strong> {d.point.value.toFixed(2)} {unitText}
+              </p>
+            {/each}
+
+            {#if pinnedRun !== null}
+              <p class="panel-hint">Pinned. Click the same run again to unpin.</p>
+            {:else}
+              <p class="panel-hint">Previewing. Click to pin this run.</p>
+            {/if}
+          </div>
+        {:else}
+          <h3>{legendTitle}</h3>
+
+          <div class="legend-block">
+            {#each labels as label}
+              <div class="legend-row">
+                <span class="legend-box" style={`background:${getSeriesColor(label)}`}></span>
+                <span>{label}</span>
+              </div>
+            {/each}
+
+            {#if totalRuns !== null}
+              <p class="total-runs">Total runs: {totalRuns}</p>
+            {/if}
+          </div>
+
+          <div class="detail-card empty">
+            Hover over the chart to preview a run. Click to pin it.
+          </div>
         {/if}
-      </g>
-
-      <!-- Tooltip -->
-      {#if activeRun !== null && activeData.length > 0}
-        {@const boxX = Math.min(xScale(activeRun) + 14, width - 280)}
-        {@const boxY = usable.top + 20}
-        {@const boxHeight = 42 + activeData.length * 22 + (pinnedRun !== null ? 18 : 0)}
-
-        <g class="tooltip" pointer-events="none">
-          <rect x={boxX} y={boxY} width="260" height={boxHeight} rx="8" />
-
-          <text
-            x={boxX + 12}
-            y={boxY + 20}
-            font-size="12"
-            font-weight="700"
-            fill="#333"
-          >
-            Run #{activeRun}
-          </text>
-
-          {#each activeData as d, i}
-            <rect
-              x={boxX + 12}
-              y={boxY + 30 + i * 22}
-              width="10"
-              height="10"
-              fill={getSeriesColor(d.label)}
-            />
-
-            <text
-              x={boxX + 28}
-              y={boxY + 39 + i * 22}
-              font-size="12"
-              fill="#333"
-            >
-              {d.label}: {d.point.value.toFixed(2)} {unitText}
-            </text>
-          {/each}
-
-          {#if pinnedRun !== null}
-            <text
-              x={boxX + 12}
-              y={boxY + boxHeight - 8}
-              font-size="10.5"
-              fill="#777"
-              font-style="italic"
-            >
-              Pinned — click same run again to unpin
-            </text>
-          {/if}
-        </g>
-      {/if}
-    </svg>
+      </aside>
+    </div>
   {:else}
     <p>No data available.</p>
   {/if}
@@ -430,6 +380,13 @@
     line-height: 1.5;
   }
 
+  .hr-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 210px;
+    gap: 12px;
+    align-items: start;
+  }
+
   .grid line {
     stroke: #999;
     stroke-opacity: 0.14;
@@ -438,12 +395,6 @@
   .lines path {
     vector-effect: non-scaling-stroke;
     transition: opacity 0.25s ease;
-  }
-
-  .tooltip rect {
-    fill: white;
-    stroke: #ddd;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.10));
   }
 
   circle {
@@ -456,5 +407,82 @@
 
   svg {
     cursor: crosshair;
+    min-width: 0;
+  }
+
+  .runner-panel {
+    margin-top: 48px;
+    padding: 12px 14px;
+    border: 1px solid #d6d6d6;
+    border-radius: 14px;
+    background: white;
+    height: fit-content;
+    font-size: 0.84rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .runner-panel.expanded {
+    min-height: 150px;
+  }
+
+  .runner-panel h3 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .legend-block {
+    margin-bottom: 12px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+  }
+
+  .legend-box,
+  .value-box {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+  }
+
+  .value-box {
+    margin-right: 7px;
+    vertical-align: -1px;
+  }
+
+  .total-runs {
+    margin: 10px 0 0;
+    color: #666;
+  }
+
+  .detail-card {
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+  }
+
+  .detail-card.no-border {
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .detail-card p {
+    margin: 7px 0;
+    line-height: 1.35;
+  }
+
+  .panel-hint {
+    margin-top: 12px !important;
+    color: #777;
+    font-style: italic;
+  }
+
+  .empty {
+    color: #777;
+    font-style: italic;
   }
 </style>

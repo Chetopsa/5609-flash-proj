@@ -375,8 +375,8 @@
     <div class="chart-card">
       <ElevationImprovementScatter
         points={improvementPoints}
-        width={740}
-        height={460}
+        width={700}
+        height={450}
       />
     </div>
 
@@ -411,8 +411,8 @@
       <div class="chart-card">
         <Elevation
           series={groupHrSeries}
-          width={980}
-          height={520}
+          width={700}
+          height={450}
           title={mainTitle}
           yLabel={mainYLabel}
           note={mainNote}

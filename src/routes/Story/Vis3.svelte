@@ -382,7 +382,7 @@
               <ElevationImprovementScatter
                 points={improvementPoints}
                 width={650}
-                height={350}
+                height={380}
                 scrollProgress={scatterScrollProgress}
               />
             </div>

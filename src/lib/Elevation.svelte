@@ -397,11 +397,7 @@
   }
 
   circle {
-    transition:
-      r 0.2s ease,
-      opacity 0.2s ease,
-      cx 0.25s ease,
-      cy 0.25s ease;
+    transition: r 0.2s ease, opacity 0.2s ease, cx 0.25s ease, cy 0.25s ease;
   }
 
   svg {
@@ -410,35 +406,36 @@
   }
 
   .runner-panel {
-    margin-top: 20px;
+    margin-top: 16px;
     padding: 12px 14px;
     border: 1px solid #d6d6d6;
     border-radius: 14px;
     background: white;
-    height: fit-content;
+    width: 420px;
+    min-height: 120px;
     font-size: 0.84rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
 
   .runner-panel.expanded {
-    min-height: 150px;
+    min-height: 120px;
   }
 
   .runner-panel h3 {
-    margin: 0 0 12px;
+    margin: 0 0 10px;
     font-size: 0.95rem;
     font-weight: 700;
   }
 
   .legend-block {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .legend-row {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin: 6px 0;
+    gap: 6px;
+    margin: 4px 14px 4px 0;
   }
 
   .legend-box,
@@ -455,12 +452,12 @@
   }
 
   .total-runs {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: #666;
   }
 
   .detail-card {
-    padding-top: 12px;
+    padding-top: 8px;
     border-top: 1px solid #eee;
   }
 
@@ -470,12 +467,14 @@
   }
 
   .detail-card p {
-    margin: 7px 0;
+    display: inline-block;
+    margin: 4px 14px 4px 0;
     line-height: 1.35;
   }
 
   .panel-hint {
-    margin-top: 12px !important;
+    display: block !important;
+    margin-top: 10px !important;
     color: #777;
     font-style: italic;
   }

@@ -122,12 +122,13 @@
 	};
 	const GROUPS: Group[] = ["low", "medium", "high"];
 
-	//  Chart geometry 
-	const W = 940;
-	const H = 430;
-	const margin = { top: 32, right: 192, bottom: 58, left: 66 };
-	const innerW = W - margin.left - margin.right;
-	const innerH = H - margin.top - margin.bottom;
+	// CHANGE THIS to adjust graph size in Vis2:
+	// These values control the chart dimensions.
+	const GRAPH_WIDTH =500;
+	const GRAPH_HEIGHT = 400;
+	const margin = { top: 32, right: 10, bottom: 58, left: 60 };
+	const innerW = GRAPH_WIDTH - margin.left - margin.right;
+	const innerH = GRAPH_HEIGHT - margin.top - margin.bottom;
 
 	function linearRegression(pts: { x: number; y: number }[]) {
 		const n = pts.length;
@@ -315,7 +316,7 @@
 	function svgMouseToRunIdx(clientX: number): number {
 		if (!chartData.xScale || !svgEl) return 1;
 		const rect = svgEl.getBoundingClientRect();
-		const scaleX = W / rect.width; // account for CSS scaling
+		const scaleX = GRAPH_WIDTH / rect.width; // account for CSS scaling
 		const svgX = (clientX - rect.left) * scaleX;
 		const raw = Math.round(chartData.xScale.invert(svgX));
 		return Math.max(1, Math.min(Math.min(xMax, 500), raw));
@@ -383,18 +384,33 @@
 	const progressT = $derived(clamp01(progress / 100));
 	const easedProgressT = $derived(progressT * progressT * (3 - 2 * progressT));
 	const scrollMaxRuns = $derived(Math.round(lerp(40, 500, easedProgressT) / 10) * 10);
-	let userOverride = $state(false);
+	let manualMode = $state(false);
+
+   function toggleMode() {
+       manualMode = !manualMode;
+       if (!manualMode) {
+           xMax = scrollMaxRuns;
+           pinnedRunIdx = null;
+           hoveredRunIdx = null;
+       }
+   }
 
 	$effect(() => {
-		if (!userOverride && xMax !== scrollMaxRuns) {
+		if (!manualMode && xMax !== scrollMaxRuns) {
 			xMax = scrollMaxRuns;
 			pinnedRunIdx = null;
 			hoveredRunIdx = null;
 		}
 	});
 
-	const LEGEND_X = W - margin.right + 16;
-	const LEGEND_ROW_H = 36;
+	// Screen bounding — fade chart in early, keep visible through all steps
+	const chartOpacity = $derived(
+       progress < 2  ? 0 :
+       progress < 8  ? (progress - 2) / 6 :
+       1
+   );
+   const chartInteractive = $derived(chartOpacity > 0.05);
+
 </script>
 
 <svelte:head>
@@ -403,7 +419,7 @@
 
 
 
-<Scroll bind:progress --scrolly-story-width="1.2fr">
+<Scroll bind:progress --scrolly-story-width="0.8fr" --scrolly-viz-width="2.5fr">
 	<div class="story-steps">
 		
 		<!-- <p class="lead">
@@ -452,6 +468,11 @@
 
 	
 	<div slot="viz" class="viz-panel">
+	<div
+		class="abs-layer"
+		style="opacity:{chartOpacity}; pointer-events:{chartInteractive ? 'auto' : 'none'};"
+		aria-hidden={!chartInteractive}
+	> 
 	<h1>How consistency shapes speed and efficiency</h1>
 		{#if loadError}
 			<p class="err">Could not load CSV: {loadError}</p>
@@ -491,13 +512,23 @@
 				<input
 					type="range"
 					class="slider"
+					class:active-slider={manualMode}
 					min="10"
 					max="500"
 					step="1"
 					bind:value={xMax}
-					oninput={() => { userOverride = true; }}
+					disabled={!manualMode}
+                    oninput={() => { manualMode = true; }}
 				/>
 				<span class="slider-val">{xMax}</span>
+				<button
+                   class="mode-toggle"
+                   class:manual={manualMode}
+                   onclick={toggleMode}
+                   title={manualMode ? "Switch to scroll-driven" : "Switch to manual control"}
+               >
+                   {manualMode ? "⟳ Auto" : "⊟ Manual"}
+               </button>
 			</div>
 
 			<!--   Chart section   -->
@@ -526,8 +557,8 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<svg
-					width={W}
-					height={H}
+					viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
+					preserveAspectRatio="xMinYMin meet"
 					class="chart"
 					aria-label="Scatter chart"
 					bind:this={svgEl}
@@ -635,7 +666,7 @@
 					<!-- Axis labels -->
 					<text
 						class="axis-label"
-						x={margin.left + innerW / 2} y={H - 10}
+						x={margin.left + innerW / 2} y={GRAPH_HEIGHT - 10}
 						text-anchor="middle"
 					>Run number (cumulative, 1 = first recorded run)</text>
 					<text
@@ -645,22 +676,19 @@
 						text-anchor="middle"
 					>{yLabel}</text>
 
-					<!-- Legend (colour key) -->
-					<text class="legend-heading" x={LEGEND_X} y={margin.top + 4}>Avg runs / week</text>
-					{#each GROUPS as g, i}
-						{@const ly = margin.top + 22 + i * LEGEND_ROW_H}
-						<circle cx={LEGEND_X + 6} cy={ly + 5} r="4"
-							fill={GROUP_COLORS[g]} stroke="rgba(0,0,0,0.12)" stroke-width="0.5" />
-						<line
-							x1={LEGEND_X + 14} y1={ly + 5} x2={LEGEND_X + 32} y2={ly + 5}
-							stroke={GROUP_COLORS[g]} stroke-width="2" stroke-dasharray="5 3"
-						/>
-						<text class="legend-label" x={LEGEND_X + 38} y={ly + 9}>
-							{GROUP_LABELS[g]}
-						</text>
-					{/each}
 				</svg>
 
+				<div class="panel-column">
+				<p class="panel-legend-heading">Avg runs / week</p>
+				<div class="external-legend">
+					{#each GROUPS as g}
+						<div class="external-legend-row">
+							<span class="external-dot" style={`background:${GROUP_COLORS[g]}`}></span>
+							<span class="external-line" style={`background:${GROUP_COLORS[g]}`}></span>
+							<span class="external-label">{GROUP_LABELS[g]}</span>
+						</div>
+					{/each}
+				</div>
 				<!--  Values panel  -->
 				<aside class="values-panel" class:visible={tooltipData !== null}>
 					{#if tooltipData}
@@ -703,10 +731,12 @@
 						</p>
 					{/if}
 				</aside>
+				</div>
 
 				</div><!-- .chart-and-panel -->
 			</section>
 		{/if}
+	</div><!-- .abs-layer -->
 	</div>
 </Scroll>
 <!-- </main> -->
@@ -761,6 +791,15 @@
 	.viz-panel {
 		min-height: 90vh;
 		margin-top: 5rem;
+		position: relative;
+   }
+
+   .abs-layer {
+       position: absolute;
+       top: 0;
+       left: 0;
+       width: 100%;
+       transition: opacity 0.5s ease;
 	}
 
 	/*  Controls  */
@@ -821,7 +860,28 @@
 
 	
 	.slider { width: 320px; accent-color: #1a1a1a; cursor: pointer; }
+	.slider:disabled { opacity: 0.45; cursor: default; }
+    .slider.active-slider { accent-color: #f05a5a; }
 	.slider-val { font-weight: 700; min-width: 32px; }
+
+	.mode-toggle {
+		padding: 0.28rem 0.7rem;
+		font-size: 0.82rem;
+		border-radius: 6px;
+		border: 1px solid #ccc;
+		background: #f5f5f5;
+		color: #555;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.mode-toggle:hover { background: #e8e8e8; }
+	.mode-toggle.manual {
+		background: #1a1a1a;
+		color: #fff;
+		border-color: #1a1a1a;
+		font-weight: 600;
+	}
 
 	/*   Layout   */
 	.chart-and-panel {
@@ -830,30 +890,62 @@
 		align-items: flex-start;
 	}
 
+	.panel-column {
+		width: 220px;
+	}
+
 	.chart {
-		background: #fafafa;
-		border: 1px solid #ddd;
-		border-radius: 8px;
 		cursor: crosshair;
+		width: 100%;
+		height: auto;
+		display: block;
 	}
 
 	/*   SVG text   */
 	.axis-label,
-	.legend-label,
-	.legend-heading {
+	.panel-legend-heading,
+	.external-label {
 		font-family: system-ui, "Segoe UI", sans-serif;
 	}
 
 	.axis-label { font-size: 11.5px; fill: #444; }
 
-	.legend-heading {
-		font-size: 10px;
-		fill: #888;
+	.panel-legend-heading {
+		margin: 0 0 0.45rem;
+		font-size: 9px;
+		color: #888;
 		text-transform: uppercase;
 		font-weight: 600;
+		letter-spacing: 0.04em;
 	}
 
-	.legend-label { font-size: 11px; fill: #333; }
+	.external-legend {
+		margin-bottom: 0.6rem;
+	}
+
+	.external-legend-row {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.external-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+	}
+
+	.external-line {
+		width: 14px;
+		height: 2px;
+		border-radius: 2px;
+	}
+
+	.external-label {
+		font-size: 9px;
+		color: #555;
+	}
 
 	/*   Tooltip panel   */
 	.values-panel {

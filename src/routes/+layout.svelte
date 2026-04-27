@@ -14,10 +14,14 @@
 	:global(body) {
 		margin: 0;
 		font-family: 'Inter', sans-serif;
-		background-color: #f8fafc;
-		background-image: radial-gradient(rgba(0,0,0,0.07) 1px, transparent 1px);
-		background-size: 24px 24px;
+		/* Subtle gradient keeps the UI clean without distracting from charts. */
+		background: linear-gradient(180deg, #f4f8ff 0%, #f8fbff 45%, #fbfdff 100%);
 		color: #333;
+		overflow-x: hidden;
+	}
+
+	:global(*) {
+		box-sizing: border-box;
 	}
 </style>
 

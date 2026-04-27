@@ -36,10 +36,10 @@
     padding: 0;
     /* A "Road & Energy" gradient: Dark asphalt to a sunrise/safety orange */
     background: linear-gradient(
-      135deg, 
+      180deg, 
       #59cdf0 0%,    /* Asphalt */    /* 59cdf0 */
-      #2d3436 50%,   /* Pavement */   /* 59cdf0 */
-      #d35400 100%   /* Safety Orange /* 59cdf0 */     
+      #59cdf0 70%,   /* Pavement */   /* 2d3436 */
+      #d35400 100%   /* Safety Orange /* d35400 */     
     );
     background-attachment: fixed;
     min-height: 100vh;

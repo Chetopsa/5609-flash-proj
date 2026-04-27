@@ -11,7 +11,7 @@
     values: LinePoint[];
   };
 
-  type MetricType = "pace" | "hr";
+  type MetricType = "pace" | "hr" | "elevation";
 
   type Props = {
     series: Series[];
@@ -29,8 +29,8 @@
   const props = $props<Props>();
 
   const series = $derived(props.series);
-  const width = $derived(props.width ?? 760);
-  const height = $derived(props.height ?? 430);
+  const width = $derived(props.width ?? 650);
+  const height = $derived(props.height ?? 340);
   const title = $derived(props.title ?? "Run Trends");
   const yLabel = $derived(props.yLabel ?? "Value");
   const note = $derived(props.note ?? "");
@@ -231,7 +231,7 @@
               d={lineGen(s.values) ?? ""}
               fill="none"
               stroke={getSeriesColor(s.label)}
-              stroke-width="2.2"
+              stroke-width="2"
               opacity={activeRun !== null ? 0.72 : 0.9}
             />
           {/each}
@@ -381,10 +381,9 @@
   }
 
   .hr-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 210px;
-    gap: 12px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .grid line {
@@ -411,7 +410,7 @@
   }
 
   .runner-panel {
-    margin-top: 48px;
+    margin-top: 20px;
     padding: 12px 14px;
     border: 1px solid #d6d6d6;
     border-radius: 14px;

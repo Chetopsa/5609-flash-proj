@@ -382,7 +382,7 @@
               <ElevationImprovementScatter
                 points={improvementPoints}
                 width={650}
-                height={330}
+                height={350}
                 scrollProgress={scatterScrollProgress}
               />
             </div>
@@ -511,7 +511,7 @@
                 <Elevation
                   series={groupHrSeries}
                   width={650}
-                  height={330}
+                  height={350}
                   title="Average Heart Rate by Elevation Group"
                   yLabel="Heart Rate (bpm)"
                   note={mainNote}

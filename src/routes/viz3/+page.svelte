@@ -2,12 +2,13 @@
   import * as d3 from "d3";
   import { onMount } from "svelte";
   import Elevation from "$lib/Elevation.svelte";
+  import ElevationImprovementScatter from "$lib/ElevationScatter.svelte";
 
   type TRun = {
     athlete: string;
     timestamp: Date;
     elev_gain_m: number;
-    avg_hr_bpm: number;
+    avg_hr_bpm: number | null;
     pace_min_km: number;
     elevation_group: string;
     runNumber: number;
@@ -29,43 +30,41 @@
     values: LinePoint[];
   };
 
+  type ImprovementPoint = {
+    athlete: string;
+    avgElevation: number;
+    improvementPct: number;
+    group: string;
+    firstPace: number;
+    lastPace: number;
+  };
+
   let runs: TRun[] = $state([]);
   let individuals: TIndividual[] = $state([]);
-  let groupPaceSeries: Series[] = $state([]);
   let groupHrSeries: Series[] = $state([]);
+  let improvementPoints: ImprovementPoint[] = $state([]);
 
   let loading = $state(true);
   let errorMsg = $state("");
 
-  let selectedMetric: "pace" | "hr" = $state("pace");
   let selectedRunner = $state("");
   let useSmoothing = $state(true);
-  let maxRunNumber = $state(120);
+  let maxRunNumber = $state(100);
 
   const parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
 
-  const percentileOrder = [
-    "Low",
-    "Medium",
-    "High"
-  ];
-
-  const groupDisplayMap = {
-    "High": "High",
-    "Medium": "Medium",
-    "Low": "Low"
-  };
+  const percentileOrder = ["Low", "Medium", "High"];
 
   const groupSortOrder = {
-    "High": 0,
-    "Medium": 1,
-    "Low": 2
+    High: 0,
+    Medium: 1,
+    Low: 2
   };
 
   const groupLabelMap = {
-    "Low": "Low",
-    "Medium": "Medium",
-    "High": "High"
+    Low: "Low",
+    Medium: "Medium",
+    High: "High"
   };
 
   function addRunNumber(allRuns: TRun[]): TRun[] {
@@ -130,31 +129,14 @@
     });
   }
 
-  function buildElevationGroupSeries(
-    allRuns: TRun[],
-    metric: "pace" | "hr"
-  ): Series[] {
-    let filtered = getBaseFilteredRuns(allRuns).filter(
-      (d) => d.runNumber <= maxRunNumber
-    );
-
-    if (metric === "pace") {
-      filtered = filtered.filter(
-        (d) => Number.isFinite(d.pace_min_km) && d.pace_min_km < 15
-      );
-    } else {
-      filtered = filtered.filter(
-        (d) => d.avg_hr_bpm !== null && Number.isFinite(d.avg_hr_bpm)
-      );
-    }
+  function buildElevationGroupSeries(allRuns: TRun[]): Series[] {
+    const filtered = getBaseFilteredRuns(allRuns)
+      .filter((d) => d.runNumber <= maxRunNumber)
+      .filter((d) => d.avg_hr_bpm !== null && Number.isFinite(d.avg_hr_bpm));
 
     const grouped = d3.rollups(
       filtered,
-      (groupRuns) =>
-        d3.mean(
-          groupRuns,
-          (d) => (metric === "pace" ? d.pace_min_km : (d.avg_hr_bpm as number))
-        ),
+      (groupRuns) => d3.mean(groupRuns, (d) => d.avg_hr_bpm as number),
       (d) => d.elevation_group,
       (d) => d.runNumber
     );
@@ -206,6 +188,59 @@
     ];
   }
 
+  function buildImprovementPoints(allRuns: TRun[]): ImprovementPoint[] {
+    const grouped = d3.group(
+      getBaseFilteredRuns(allRuns)
+        .filter((d) => Number.isFinite(d.elev_gain_m))
+        .filter((d) => Number.isFinite(d.pace_min_km))
+        .filter((d) => d.pace_min_km < 15),
+      (d) => d.athlete
+    );
+
+    const result: ImprovementPoint[] = [];
+
+    for (const [athlete, athleteRuns] of grouped) {
+      const sorted = athleteRuns
+        .slice()
+        .sort((a, b) => a.runNumber - b.runNumber);
+
+      if (sorted.length < 10) continue;
+
+      const midpoint = Math.floor(sorted.length / 2);
+      const firstHalf = sorted.slice(0, midpoint);
+      const secondHalf = sorted.slice(midpoint);
+
+      if (firstHalf.length < 3 || secondHalf.length < 3) continue;
+
+      const firstPace = d3.mean(firstHalf, (d) => d.pace_min_km);
+      const lastPace = d3.mean(secondHalf, (d) => d.pace_min_km);
+      const avgElevation = d3.mean(sorted, (d) => d.elev_gain_m);
+
+      if (
+        firstPace === undefined ||
+        lastPace === undefined ||
+        avgElevation === undefined ||
+        firstPace === 0
+      ) {
+        continue;
+      }
+
+      const improvementPct =
+        ((firstPace - lastPace) / firstPace) * 100;
+
+      result.push({
+        athlete,
+        avgElevation,
+        improvementPct,
+        group: sorted[0].elevation_group,
+        firstPace,
+        lastPace
+      });
+    }
+
+    return result;
+  }
+
   async function loadCsv() {
     loading = true;
     errorMsg = "";
@@ -249,8 +284,8 @@
       runs = addRunNumber(rawRuns.filter(Boolean) as TRun[]);
       individuals = rawIndividuals.filter((d) => d.athlete);
 
-      groupPaceSeries = buildElevationGroupSeries(runs, "pace");
-      groupHrSeries = buildElevationGroupSeries(runs, "hr");
+      improvementPoints = buildImprovementPoints(runs);
+      groupHrSeries = buildElevationGroupSeries(runs);
 
       const athletes = [...new Set(runs.map((d) => d.athlete).filter(Boolean))].sort();
       selectedRunner = athletes[0] ?? "";
@@ -286,10 +321,6 @@
       })
   );
 
-  const displayedGroupSeries = $derived(
-    selectedMetric === "pace" ? groupPaceSeries : groupHrSeries
-  );
-
   const displayedIndividualSeries = $derived(
     buildIndividualElevationSeries(runs, selectedRunner)
   );
@@ -299,19 +330,15 @@
   );
 
   const mainTitle = $derived(
-    selectedMetric === "pace"
-      ? "Pace over Run Number"
-      : "Heart Rate over Run Number"
+    "Does elevation affect heart rate?"
   );
 
   const mainYLabel = $derived(
-    selectedMetric === "pace" ? "Pace (min/km)" : "Heart Rate (bpm)"
+    "Heart Rate (bpm)"
   );
 
   const mainNote = $derived(
-    selectedMetric === "pace"
-      ? "Each line shows the average pace at each run number for the low, medium, and high elevation groups. Lower values indicate faster pace."
-      : "Each line shows the average heart rate at each run number for the low, medium, and high elevation groups."
+    "Each line shows average heart rate by run number for the low, medium, and high elevation groups. Smoothing helps reveal the overall trend."
   );
 
   const individualTitle = $derived(
@@ -328,8 +355,7 @@
 
   $effect(() => {
     if (runs.length) {
-      groupPaceSeries = buildElevationGroupSeries(runs, "pace");
-      groupHrSeries = buildElevationGroupSeries(runs, "hr");
+      groupHrSeries = buildElevationGroupSeries(runs);
     }
   });
 
@@ -337,83 +363,88 @@
 </script>
 
 <div class="container">
-  <h1>How does elevation affect heart rate and pace?</h1>
+  <h1>Does incorporating elevation give improvement?</h1>
 
   <p class="description">
-    The top chart shows average pace or heart rate trends over run number for the 10th, 50th, and 90th percentile
-    elevation groups. The supplemental chart below shows how each individual runner’s elevation gain
-    changes over their runs. The group lines can be smoothed to reduce noise and make trends easier to compare.
+    This chart is intended to show whether runners with more average elevation gain per run improved their pace more over time.
+    The supporting charts show heart rate and individual elevation trends across run number.
   </p>
-
-  <div class="controls">
-    <label for="metric-select">Metric:</label>
-    <select id="metric-select" bind:value={selectedMetric}>
-      <option value="pace">Pace</option>
-      <option value="hr">Heart Rate</option>
-    </select>
-
-    <label class="checkbox">
-      <input type="checkbox" bind:checked={useSmoothing} />
-      Smooth lines
-    </label>
-  </div>
-
-  <div class="controls run-slider-row">
-    <label for="run-slider">Runs 1 to <strong>{maxRunNumber}</strong></label>
-    <input
-      id="run-slider"
-      type="range"
-      min="10"
-      max="500"
-      step="10"
-      value={maxRunNumber}
-      on:input={handleRunSlider}
-    />
-  </div>
 
   {#if loading}
     <p>Loading data...</p>
   {:else if errorMsg}
     <p class="error">{errorMsg}</p>
-  {:else if displayedGroupSeries.length === 0}
-    <p>No processed data available.</p>
   {:else}
-    <Elevation
-      series={displayedGroupSeries}
-      width={980}
-      height={520}
-      title={mainTitle}
-      yLabel={mainYLabel}
-      note={mainNote}
-      metric={selectedMetric}
-      legendTitle="Elevation Groups"
-    />
-
-    <div class="controls supplemental-controls">
-      <label for="runner-select">Runner:</label>
-      <select id="runner-select" bind:value={selectedRunner}>
-        {#each runnerOptions as runner}
-          <option value={runner.athlete}>
-            #{runner.athlete} · {runner.group}
-          </option>
-        {/each}
-      </select>
+    <div class="chart-card">
+      <ElevationImprovementScatter
+        points={improvementPoints}
+        width={980}
+        height={520}
+      />
     </div>
 
-    {#if displayedIndividualSeries.length > 0}
-      <div class="supplemental">
+    <div class="controls">
+      <label class="checkbox">
+        <input type="checkbox" bind:checked={useSmoothing} />
+        Smooth heart rate lines
+      </label>
+    </div>
+
+    <div class="controls run-slider-row">
+      <label for="run-slider">Runs 1 to <strong>{maxRunNumber}</strong></label>
+      <input
+        id="run-slider"
+        type="range"
+        min="10"
+        max="500"
+        step="10"
+        value={maxRunNumber}
+        on:input={handleRunSlider}
+      />
+    </div>
+
+    {#if groupHrSeries.length === 0}
+      <p>No processed heart rate data available.</p>
+    {:else}
+      <div class="chart-card">
         <Elevation
-          series={displayedIndividualSeries}
+          series={groupHrSeries}
           width={980}
           height={520}
-          title={individualTitle}
-          yLabel={individualYLabel}
-          note={individualNote}
-          metric="elevation"
-          legendTitle="Runner"
-          totalRuns={selectedRunnerTotalRuns}
+          title={mainTitle}
+          yLabel={mainYLabel}
+          note={mainNote}
+          metric="hr"
+          legendTitle="Elevation Groups"
         />
       </div>
+
+      <div class="controls supplemental-controls">
+        <label for="runner-select">Runner:</label>
+        <select id="runner-select" bind:value={selectedRunner}>
+          {#each runnerOptions as runner}
+            <option value={runner.athlete}>
+              #{runner.athlete} · {runner.group}
+            </option>
+          {/each}
+        </select>
+      </div>
+
+      {#if displayedIndividualSeries.length > 0}
+        <div class="chart-card supplemental">
+          <Elevation
+            series={displayedIndividualSeries}
+            width={980}
+            height={520}
+            title={individualTitle}
+            yLabel={individualYLabel}
+            note={individualNote}
+            metric="elevation"
+            legendTitle="Runner"
+            totalRuns={selectedRunnerTotalRuns}
+          />
+        </div>
+      {/if}
     {/if}
   {/if}
 </div>
@@ -425,20 +456,18 @@
     padding: 20px 0 40px 0;
   }
 
-  .subtitle {
-    margin-top: 0;
-    margin-bottom: 14px;
-    color: #555;
-  }
-
   .description {
     max-width: 900px;
     line-height: 1.5;
-    margin-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  .chart-card {
+    margin-top: 24px;
   }
 
   .controls {
-    margin: 16px 0 18px 0;
+    margin: 20px 0 18px 0;
     display: flex;
     gap: 16px;
     align-items: center;
@@ -451,7 +480,7 @@
   }
 
   .supplemental-controls {
-    margin-top: 24px;
+    margin-top: 28px;
   }
 
   .supplemental {

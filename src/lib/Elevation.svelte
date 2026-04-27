@@ -33,11 +33,11 @@
   const title = $derived(props.title ?? "Run Trends");
   const yLabel = $derived(props.yLabel ?? "Value");
   const note = $derived(props.note ?? "");
-  const metric = $derived(props.metric ?? "pace");
+  const metric = $derived(props.metric ?? "hr");
   const legendTitle = $derived(props.legendTitle ?? "Legend");
   const totalRuns = $derived(props.totalRuns ?? null);
 
-  const margin = { top: 35, right: 250, bottom: 70, left: 85 };
+  const margin = { top: 35, right: 300, bottom: 70, left: 85 };
 
   const usable = $derived({
     left: margin.left,
@@ -194,7 +194,7 @@
           fill="none"
           stroke={getSeriesColor(s.label)}
           stroke-width="2"
-          opacity={hoverRun !== null ? 0.78 : 0.85}
+          opacity={hoverRun !== null ? 0.78 : 0.9}
         />
       {/each}
     </g>
@@ -203,13 +203,13 @@
       {#each series as s (s.label)}
         {#each s.values as v (s.label + "-" + v.x)}
           <circle
-          cx={xScale(v.x)}
-          cy={yScale(v.value)}
-          r="1.5"
-          fill={getSeriesColor(s.label)}
-          stroke="none"
-          opacity="0.2"
-        />
+            cx={xScale(v.x)}
+            cy={yScale(v.value)}
+            r="1.5"
+            fill={getSeriesColor(s.label)}
+            stroke="none"
+            opacity="0.08"
+          />
         {/each}
       {/each}
     </g>
@@ -266,7 +266,7 @@
       </text>
     {/if}
 
-    <g transform={`translate(${usable.right + 26}, ${usable.top + 10})`}>
+    <g transform={`translate(${usable.right + 38}, ${usable.top + 35})`}>
       <text x="0" y="0" font-size="12" font-weight="600">{legendTitle}</text>
 
       {#each labels as label, i (label)}

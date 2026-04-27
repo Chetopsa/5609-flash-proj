@@ -31,7 +31,7 @@
 
 <style>
   .intro-card {
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
     /* min-height: 80vh; */
     padding: 8vh 1.25rem 0;
@@ -41,6 +41,7 @@
     font-size: clamp(2rem, 4vw, 3.2rem);
     line-height: 1.1;
     margin: 0 0 0.75rem;
+    text-align: center;
   }
 
 
@@ -50,5 +51,6 @@
     font-weight: 500;
     line-height: 1.45;
     margin: 0 0 1rem;
+    text-align: center;
   }
 </style>

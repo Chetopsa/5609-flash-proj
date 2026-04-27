@@ -86,6 +86,13 @@
           {/if}
         </div>
       {/if}
+
+      {#if chartProgress > 85}
+        <div class="transition-text" in:fade={{ duration: 400 }}>
+          <p>Now you know <em>when</em> people run.</p>
+          <p>But what <strong>actually makes a runner get faster?</strong> Let's look at how training habits shape performance.</p>
+        </div>
+      {/if}
     </section>
 
   </div>
@@ -158,5 +165,23 @@
   .runner-player {
     width: 120px;
     height: 120px;
+  }
+  .transition-text {
+    margin: 2rem auto 0;
+    max-width: 600px;
+    text-align: center;
+    padding: 1.5rem 1.25rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .transition-text p {
+    font-size: clamp(1rem, 2.1vw, 1.3rem);
+    font-weight: 500;
+    line-height: 1.5;
+    margin: 0 0 0.5rem;
+  }
+
+  .transition-text p:last-child {
+    margin: 0;
   }
 </style>

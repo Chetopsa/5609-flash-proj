@@ -23,6 +23,7 @@
     metric?: MetricType;
     legendTitle?: string;
     totalRuns?: number;
+    scrollProgress?: number; // 0–100, drives left-to-right line reveal
   };
 
   const props = $props<Props>();
@@ -36,20 +37,28 @@
   const metric = $derived(props.metric ?? "hr");
   const legendTitle = $derived(props.legendTitle ?? "Legend");
   const totalRuns = $derived(props.totalRuns ?? null);
+  // Default to fully revealed when no scrollProgress passed (e.g. individual explorer)
+  const scrollProgress = $derived(props.scrollProgress ?? 100);
 
-  const margin = { top: 35, right: 300, bottom: 70, left: 85 };
+  const margin = { top: 50, right: 220, bottom: 70, left: 85 };
 
   const usable = $derived({
     left: margin.left,
     right: width - margin.right,
     top: margin.top,
-    bottom: height - margin.bottom
+    bottom: height - margin.bottom,
   });
 
   const allPoints = $derived(series.flatMap((s) => s.values));
   const allX = $derived(allPoints.map((d) => d.x));
   const allValues = $derived(allPoints.map((d) => d.value));
   const labels = $derived(series.map((s) => s.label));
+
+  const xMin = $derived(allX.length ? d3.min(allX)! : 0);
+  const xMax = $derived(allX.length ? d3.max(allX)! : 1);
+
+  // Data x value up to which lines are revealed
+  const revealedXMax = $derived(xMin + (xMax - xMin) * (scrollProgress / 100));
 
   function getSeriesColor(label: string): string {
     if (label.includes("Low")) return "#4C72B0";
@@ -60,7 +69,7 @@
 
   const xScale = $derived(
     d3.scaleLinear()
-      .domain(allX.length ? [d3.min(allX)!, d3.max(allX)!] : [0, 1])
+      .domain(allX.length ? [xMin, xMax] : [0, 1])
       .nice()
       .range([usable.left, usable.right])
   );
@@ -85,12 +94,9 @@
 
   function updateAxis() {
     d3.select(xAxis).call(
-      d3.axisBottom(xScale)
-        .ticks(8)
-        .tickFormat(d3.format("d"))
+      d3.axisBottom(xScale).ticks(8).tickFormat(d3.format("d"))
     );
-
-    d3.select(yAxis).call(d3.axisLeft(yScale));
+    d3.select(yAxis).call(d3.axisLeft(yScale).ticks(6));
   }
 
   $effect(() => {
@@ -98,28 +104,18 @@
   });
 
   const unitText = $derived(
-    metric === "pace" ? "min/km" :
-    metric === "hr" ? "bpm" :
-    "m"
+    metric === "pace" ? "min/km" : metric === "hr" ? "bpm" : "m"
   );
 
   let hoverX = $state<number | null>(null);
 
   function handleSvgMouseMove(event: MouseEvent) {
     if (!svgEl) return;
-
     const [mx, my] = d3.pointer(event, svgEl);
-
-    if (
-      mx < usable.left ||
-      mx > usable.right ||
-      my < usable.top ||
-      my > usable.bottom
-    ) {
+    if (mx < usable.left || mx > usable.right || my < usable.top || my > usable.bottom) {
       hoverX = null;
       return;
     }
-
     hoverX = mx;
   }
 
@@ -132,11 +128,11 @@
   );
 
   function getClosestPoint(points: LinePoint[], run: number): LinePoint | null {
-    if (!points.length) return null;
-
-    return points.reduce((best, current) => {
-      return Math.abs(current.x - run) < Math.abs(best.x - run) ? current : best;
-    });
+    const revealed = points.filter((p) => p.x <= revealedXMax);
+    if (!revealed.length) return null;
+    return revealed.reduce((best, current) =>
+      Math.abs(current.x - run) < Math.abs(best.x - run) ? current : best
+    );
   }
 
   const hoverData = $derived(
@@ -145,204 +141,232 @@
       : series
           .map((s) => ({
             label: s.label,
-            point: getClosestPoint(s.values, hoverRun)
+            point: getClosestPoint(s.values, hoverRun),
           }))
           .filter((d): d is { label: string; point: LinePoint } => d.point !== null)
   );
+
+  // Pixel x of the reveal boundary
+  const revealPixelX = $derived(
+    Math.max(usable.left, Math.min(xScale(revealedXMax), usable.right))
+  );
+
+  // Unique clip ID per instance
+  const clipId = `line-clip-${Math.random().toString(36).slice(2, 7)}`;
 </script>
 
-<h3>{title}</h3>
+<div class="elevation-chart-wrap">
+  <h3 class="chart-title">{title}</h3>
 
-{#if series.length}
-  <svg
-    bind:this={svgEl}
-    {width}
-    {height}
-    onmousemove={handleSvgMouseMove}
-    onmouseleave={clearHover}
-  >
-    <g class="grid">
-      {#each yScale.ticks(6) as tick}
-        <line
-          x1={usable.left}
-          x2={usable.right}
-          y1={yScale(tick)}
-          y2={yScale(tick)}
-          stroke="#999"
-          stroke-opacity="0.15"
-        />
-      {/each}
-    </g>
+  {#if note && metric !== "hr"}
+    <p class="chart-note">{note}</p>
+  {/if}
 
-    <g class="grid">
-      {#each xScale.ticks(8) as tick}
-        <line
-          x1={xScale(tick)}
-          x2={xScale(tick)}
-          y1={usable.top}
-          y2={usable.bottom}
-          stroke="#999"
-          stroke-opacity="0.08"
-        />
-      {/each}
-    </g>
-
-    <g class="lines">
-      {#each series as s (s.label)}
-        <path
-          d={lineGen(s.values) ?? ""}
-          fill="none"
-          stroke={getSeriesColor(s.label)}
-          stroke-width="2"
-          opacity={hoverRun !== null ? 0.78 : 0.9}
-        />
-      {/each}
-    </g>
-
-    <g class="points">
-      {#each series as s (s.label)}
-        {#each s.values as v (s.label + "-" + v.x)}
-          <circle
-            cx={xScale(v.x)}
-            cy={yScale(v.value)}
-            r="1.5"
-            fill={getSeriesColor(s.label)}
-            stroke="none"
-            opacity="0.08"
-          />
-        {/each}
-      {/each}
-    </g>
-
-    {#if hoverRun !== null && hoverData.length > 0}
-      <line
-        x1={xScale(hoverRun)}
-        x2={xScale(hoverRun)}
-        y1={usable.top}
-        y2={usable.bottom}
-        stroke="#888"
-        stroke-width="1"
-        stroke-dasharray="4,4"
-        opacity="0.8"
-      />
-
-      {#each hoverData as d}
-        <circle
-          cx={xScale(d.point.x)}
-          cy={yScale(d.point.value)}
-          r="4"
-          fill={getSeriesColor(d.label)}
-          stroke="white"
-          stroke-width="1.5"
-        />
-      {/each}
-    {/if}
-
-    <g transform={`translate(0, ${usable.bottom})`} bind:this={xAxis} />
-    <g transform={`translate(${usable.left}, 0)`} bind:this={yAxis} />
-
-    <text
-      x={(usable.left + usable.right) / 2}
-      y={height - 15}
-      text-anchor="middle"
-      font-size="12"
+  {#if series.length}
+    <svg
+      bind:this={svgEl}
+      {width}
+      {height}
+      onmousemove={handleSvgMouseMove}
+      onmouseleave={clearHover}
     >
-      Run Number
-    </text>
-
-    <text
-      x={22}
-      y={(usable.top + usable.bottom) / 2}
-      text-anchor="middle"
-      font-size="12"
-      transform={`rotate(-90, 22, ${(usable.top + usable.bottom) / 2})`}
-    >
-      {yLabel}
-    </text>
-
-    {#if note}
-      <text x={usable.left} y={usable.top - 12} font-size="11" fill="#444">
-        {note}
-      </text>
-    {/if}
-
-    <g transform={`translate(${usable.right + 38}, ${usable.top + 35})`}>
-      <text x="0" y="0" font-size="12" font-weight="600">{legendTitle}</text>
-
-      {#each labels as label, i (label)}
-        <rect
-          x="0"
-          y={14 + i * 22}
-          width="12"
-          height="12"
-          fill={getSeriesColor(label)}
-        />
-        <text x="18" y={24 + i * 22} font-size="12">{label}</text>
-      {/each}
-
-      {#if totalRuns !== null}
-        <text
-          x="0"
-          y={14 + labels.length * 22 + 12}
-          font-size="12"
-          font-weight="500"
-          fill="#666"
-        >
-          Total runs: {totalRuns}
-        </text>
-      {/if}
-    </g>
-
-    {#if hoverRun !== null && hoverData.length > 0}
-      {@const boxX = Math.min(xScale(hoverRun) + 14, width - 280)}
-      {@const boxY = usable.top + 20}
-      {@const boxHeight = 34 + hoverData.length * 22}
-
-      <g class="tooltip" pointer-events="none">
-        <rect
-          x={boxX}
-          y={boxY}
-          width="260"
-          height={boxHeight}
-          rx="8"
-          fill="white"
-          stroke="#ccc"
-        />
-
-        <text
-          x={boxX + 12}
-          y={boxY + 20}
-          font-size="12"
-          font-weight="700"
-          fill="#333"
-        >
-          Run Number: {hoverRun}
-        </text>
-
-        {#each hoverData as d, i}
+      <defs>
+        <!-- Clip rect grows rightward as scrollProgress increases -->
+        <clipPath id={clipId}>
           <rect
-            x={boxX + 12}
-            y={boxY + 30 + i * 22}
-            width="10"
-            height="10"
-            fill={getSeriesColor(d.label)}
+            x={usable.left}
+            y={usable.top - 10}
+            width={Math.max(0, revealPixelX - usable.left)}
+            height={usable.bottom - usable.top + 20}
           />
-          <text
-            x={boxX + 28}
-            y={boxY + 39 + i * 22}
-            font-size="12"
-            fill="#333"
-          >
-            {d.label}: {d.point.value.toFixed(2)} {unitText}
-          </text>
+        </clipPath>
+      </defs>
+
+      <!-- Horizontal grid lines -->
+      <g class="grid">
+        {#each yScale.ticks(6) as tick}
+          <line
+            x1={usable.left}
+            x2={usable.right}
+            y1={yScale(tick)}
+            y2={yScale(tick)}
+            stroke="#999"
+            stroke-opacity="0.14"
+          />
         {/each}
       </g>
-    {/if}
-  </svg>
-{/if}
+
+      <!-- Vertical grid lines -->
+      <g class="grid">
+        {#each xScale.ticks(8) as tick}
+          <line
+            x1={xScale(tick)}
+            x2={xScale(tick)}
+            y1={usable.top}
+            y2={usable.bottom}
+            stroke="#999"
+            stroke-opacity="0.07"
+          />
+        {/each}
+      </g>
+
+      <!-- Series lines — clipped to revealed portion -->
+      <g class="lines" clip-path={`url(#${clipId})`}>
+        {#each series as s (s.label)}
+          <path
+            d={lineGen(s.values) ?? ""}
+            fill="none"
+            stroke={getSeriesColor(s.label)}
+            stroke-width="2.2"
+            opacity={hoverRun !== null ? 0.7 : 0.9}
+          />
+        {/each}
+      </g>
+
+      <!-- Subtle dots — clipped -->
+      <g class="points" clip-path={`url(#${clipId})`}>
+        {#each series as s (s.label)}
+          {#each s.values as v (s.label + "-" + v.x)}
+            <circle
+              cx={xScale(v.x)}
+              cy={yScale(v.value)}
+              r="1.5"
+              fill={getSeriesColor(s.label)}
+              opacity="0.07"
+            />
+          {/each}
+        {/each}
+      </g>
+
+      <!-- Reveal edge line (hidden when fully revealed) -->
+      {#if scrollProgress < 99}
+        <line
+          x1={revealPixelX}
+          x2={revealPixelX}
+          y1={usable.top}
+          y2={usable.bottom}
+          stroke="#bbb"
+          stroke-width="1.5"
+          stroke-dasharray="4,3"
+          opacity="0.7"
+        />
+      {/if}
+
+      <!-- Hover crosshair + dots -->
+      {#if hoverRun !== null && hoverData.length > 0}
+        <line
+          x1={xScale(hoverRun)}
+          x2={xScale(hoverRun)}
+          y1={usable.top}
+          y2={usable.bottom}
+          stroke="#888"
+          stroke-width="1"
+          stroke-dasharray="4,4"
+          opacity="0.7"
+        />
+        {#each hoverData as d}
+          <circle
+            cx={xScale(d.point.x)}
+            cy={yScale(d.point.value)}
+            r="5"
+            fill={getSeriesColor(d.label)}
+            stroke="white"
+            stroke-width="1.5"
+          />
+        {/each}
+      {/if}
+
+      <!-- Axes -->
+      <g transform={`translate(0, ${usable.bottom})`} bind:this={xAxis} />
+      <g transform={`translate(${usable.left}, 0)`} bind:this={yAxis} />
+
+      <!-- Axis labels -->
+      <text
+        x={(usable.left + usable.right) / 2}
+        y={height - 14}
+        text-anchor="middle"
+        font-size="12"
+        fill="#444"
+      >Run Number</text>
+
+      <text
+        x="22"
+        y={(usable.top + usable.bottom) / 2}
+        text-anchor="middle"
+        font-size="12"
+        fill="#444"
+        transform={`rotate(-90, 22, ${(usable.top + usable.bottom) / 2})`}
+      >{yLabel}</text>
+
+      <!-- Legend -->
+      <g transform={`translate(${usable.right + 28}, ${usable.top + 20})`}>
+        <text x="0" y="0" font-size="12" font-weight="700" fill="#333">{legendTitle}</text>
+        {#each labels as label, i (label)}
+          <rect x="0" y={14 + i * 22} width="12" height="12" fill={getSeriesColor(label)} />
+          <text x="18" y={24 + i * 22} font-size="12" fill="#333">{label}</text>
+        {/each}
+        {#if totalRuns !== null}
+          <text
+            x="0"
+            y={14 + labels.length * 22 + 16}
+            font-size="12"
+            font-weight="500"
+            fill="#666"
+          >Total runs: {totalRuns}</text>
+        {/if}
+      </g>
+
+      <!-- Hover tooltip -->
+      {#if hoverRun !== null && hoverData.length > 0}
+        {@const boxX = Math.min(xScale(hoverRun) + 14, width - 260)}
+        {@const boxY = usable.top + 20}
+        {@const boxHeight = 34 + hoverData.length * 22}
+        <g class="tooltip" pointer-events="none">
+          <rect x={boxX} y={boxY} width="250" height={boxHeight} rx="8" />
+          <text x={boxX + 12} y={boxY + 20} font-size="12" font-weight="700" fill="#333">
+            Run #{hoverRun}
+          </text>
+          {#each hoverData as d, i}
+            <rect x={boxX + 12} y={boxY + 30 + i * 22} width="10" height="10" fill={getSeriesColor(d.label)} />
+            <text x={boxX + 28} y={boxY + 39 + i * 22} font-size="12" fill="#333">
+              {d.label}: {d.point.value.toFixed(2)} {unitText}
+            </text>
+          {/each}
+        </g>
+      {/if}
+    </svg>
+  {/if}
+</div>
 
 <style>
+  .elevation-chart-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .chart-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: #222;
+  }
+
+  .chart-note {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: #666;
+    max-width: 820px;
+    line-height: 1.5;
+  }
+
   .lines path {
     vector-effect: non-scaling-stroke;
+  }
+
+  .tooltip rect {
+    fill: white;
+    stroke: #ddd;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.10));
   }
 </style>

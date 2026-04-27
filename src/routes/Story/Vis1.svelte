@@ -186,7 +186,7 @@
 
     <!-- ① Intro -->
     <section class="step">
-      <h2>Three Levels of Runners</h2>
+      <h2>How Running Volume Affects Pace</h2>
       <p class="subtitle">
         We tracked 100+ Strava athletes and split them into three tiers based on how often
         they run each week — then followed every run they logged.
@@ -299,7 +299,7 @@
       style="opacity:{mainChartOpacity}; pointer-events:{mainChartInteractive ? 'auto' : 'none'};"
       aria-hidden={!mainChartInteractive}
     >
-      <h1>Running more often makes you measurably faster</h1>
+      <h1>How Consistency Effects Pace Overtime</h1>
 
       <div class="controls">
         <div class="control-row">

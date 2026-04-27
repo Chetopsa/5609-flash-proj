@@ -397,7 +397,11 @@
   }
 
   circle {
-    transition: r 0.2s ease, opacity 0.2s ease, cx 0.25s ease, cy 0.25s ease;
+    transition:
+      r 0.2s ease,
+      opacity 0.2s ease,
+      cx 0.25s ease,
+      cy 0.25s ease;
   }
 
   svg {
@@ -411,7 +415,7 @@
     border: 1px solid #d6d6d6;
     border-radius: 14px;
     background: white;
-    width: 420px;
+    width: 420px; /* unchanged */
     min-height: 120px;
     font-size: 0.84rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -447,7 +451,7 @@
   }
 
   .value-box {
-    margin-right: 7px;
+    margin-right: 6px;
     vertical-align: -1px;
   }
 
@@ -467,14 +471,15 @@
   }
 
   .detail-card p {
-    display: inline-block;
-    margin: 4px 14px 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
     line-height: 1.35;
   }
 
   .panel-hint {
-    display: block !important;
-    margin-top: 10px !important;
+    margin-top: 12px !important;
     color: #777;
     font-style: italic;
   }

@@ -1,56 +1,135 @@
 <script lang="ts">
   export let progress = 0;
+  import { fly } from "svelte/transition";
 
   $: normalizedProgress = Math.max(0, Math.min(1, progress / 100));
   $: introOpacity = Math.min(1, normalizedProgress * 3);
-
-  import { fade, fly } from "svelte/transition";
+  $: eyebrowVisible = progress > 2;
+  $: sub1Visible = progress > 15;
+  $: sub2Visible = progress > 30;
 </script>
 
-<section class="intro-card">
-  <h1 style="opacity: {introOpacity};">You just started running. Now what?</h1>
-
-  {#if progress > 15}
-    <h2 in:fly={{ duration: 300, y: 20 }}>
-      We looked at real Strava data to find out what separates runners who improve
-      from those who don’t.
-    </h2>
+<section class="intro-body">
+  {#if eyebrowVisible}
+    <p class="eyebrow" in:fly={{ duration: 400, y: -10 }}>
+      <span class="eyebrow-dot"></span>
+      A data story about running
+    </p>
   {/if}
-
-  {#if progress > 30}
-    <h2 in:fly={{ duration: 200, y: 20 }}>
-      Over the past decade, running has grown steadily in popularity, with platforms like 
-      Strava capturing activity data across runners of all levels. This allows us to move 
-      beyond assumptions and understand how running behavior varies in practice. 
-      <!-- Millions of people lace up every year, but most don’t know where to begin. -->
-
-    </h2>
-    
+  <h1 style="opacity: {introOpacity};">
+    You just started running.<br />
+    <em>Now what?</em>
+  </h1>
+  {#if sub1Visible}
+    <p class="lead" in:fly={{ duration: 350, y: 22 }}>
+      We analyzed real Strava data to find out what separates runners who improve
+      from those who plateau — and the answer might surprise you.
+    </p>
+  {/if}
+  {#if sub2Visible}
+    <p class="body-text" in:fly={{ duration: 280, y: 18 }}>
+      Over the past decade, running has grown steadily in popularity. Platforms like
+      Strava now capture activity across runners of all levels, letting us move beyond
+      assumptions and understand how behavior actually varies in practice.
+    </p>
+  {/if}
+  {#if sub2Visible}
+    <div class="scroll-hint" in:fly={{ duration: 300, y: 10, delay: 200 }}>
+      <span class="scroll-arrow"></span>
+      Scroll to explore
+    </div>
   {/if}
 </section>
 
 <style>
-  .intro-card {
-    max-width: 1000px;
-    margin: 0 auto;
-    /* min-height: 80vh; */
-    padding: 8vh 1.25rem 0;
+  .intro-body {
+    max-width: 900px;
+    width: 100%;
+    margin: 0 7rem 0 auto;
+    padding: 10vh 2rem 4vh;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    gap: 0;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #7a7260;
+    margin: 0 0 1.5rem;
+  }
+
+  .eyebrow-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #b5a882;
   }
 
   h1 {
-    font-size: clamp(2rem, 4vw, 3.2rem);
-    line-height: 1.1;
-    margin: 0 0 0.75rem;
-    text-align: center;
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    line-height: 1.08;
+    margin: 0 0 1.5rem;
+    color: #1a1a18;
+    letter-spacing: -0.02em;
   }
 
+  h1 em {
+    font-style: italic;
+    color: #5c7a5a;
+  }
 
+  .lead {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    font-weight: 400;
+    line-height: 1.55;
+    margin: 0 0 1.25rem;
+    color: #3a3830;
+    max-width: 620px;
+  }
 
-  h2 {
-    font-size: clamp(1rem, 2.1vw, 1.3rem);
-    font-weight: 500;
-    line-height: 1.45;
-    margin: 0 0 1rem;
-    text-align: center;
+  .body-text {
+    font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+    font-weight: 300;
+    line-height: 1.65;
+    margin: 0 0 2.5rem;
+    color: #6b6456;
+    max-width: 580px;
+  }
+
+  .scroll-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9a9080;
+    margin-top: 1rem;
+  }
+
+  .scroll-arrow {
+    display: block;
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, transparent, #b5a882);
+    animation: pulse-down 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse-down {
+    0%, 100% { opacity: 0.4; transform: scaleY(0.7); transform-origin: top; }
+    50% { opacity: 1; transform: scaleY(1); }
   }
 </style>

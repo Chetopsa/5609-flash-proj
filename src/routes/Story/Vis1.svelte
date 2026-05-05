@@ -36,11 +36,9 @@
         })),
         d3.csv("./annotated-running-races.csv", d3.autoType),
       ]);
-
       data        = [...rawData];
       individuals = [...rawInd];
       raceStats   = [...rawRaces];
-
       updateChart();
     } catch (err) {
       console.error("Error loading CSVs:", err);
@@ -59,9 +57,7 @@
   function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
   function representativeByGroup(group: "low" | "mid" | "high") {
-    const runners = individuals
-      .filter(r => r.group === group)
-      .sort((a, b) => a.avg_pace - b.avg_pace);
+    const runners = individuals.filter(r => r.group === group).sort((a, b) => a.avg_pace - b.avg_pace);
     if (!runners.length) return null;
     return runners[Math.floor(runners.length / 2)].athlete;
   }
@@ -85,7 +81,7 @@
   };
 
   $: overviewOpacity =
-    progress < 2 ? 0 : 
+    progress < 2 ? 0 :
     progress < 35 ? 1 :
     progress < 38 ? 1 - (progress - 35) / 5 :
     0;
@@ -106,7 +102,6 @@
   $: mainChartInteractive = mainChartOpacity > 0.05;
   $: calcInteractive      = calcOpacity      > 0.05;
 
-  // spotlight runner
   $: scrollPhase = (
     progress < 42 ? "low"  :
     progress < 56 ? "mid"  :
@@ -127,9 +122,9 @@
   $: midShowcase  = pickDistinctByGroup("mid",  3);
   $: highShowcase = pickDistinctByGroup("high", 3);
   $: showcaseRunners = [
-    ...lowShowcase.map(athlete  => ({ athlete, group: "low"  as const })),
-    ...midShowcase.map(athlete  => ({ athlete, group: "mid"  as const })),
-    ...highShowcase.map(athlete => ({ athlete, group: "high" as const })),
+    ...lowShowcase.map(a  => ({ athlete: a, group: "low"  as const })),
+    ...midShowcase.map(a  => ({ athlete: a, group: "mid"  as const })),
+    ...highShowcase.map(a => ({ athlete: a, group: "high" as const })),
   ];
 
   $: inShowcasePhase  = progress >= 84;
@@ -155,16 +150,16 @@
       updateChart();
     }
   }
+
   $: effectiveSelectedAthlete = selectedAthlete ?? scrollRunner;
 
-  $: scrollMaxRuns =
-    Math.min(450, 
-      progress < 20
+  $: scrollMaxRuns = Math.min(450,
+    progress < 20
       ? lerp(100, 160, progress / 20)
       : progress < 60
         ? lerp(160, 320, (progress - 20) / 40)
         : lerp(320, 500, (progress - 60) / 40)
-    );
+  );
 
   $: roundedScrollMaxRuns = Math.round(scrollMaxRuns / 10) * 10;
   $: {
@@ -172,111 +167,105 @@
       maxRuns = roundedScrollMaxRuns;
       updateChart();
     }
-}
+  }
 
   onMount(loadCsv);
 </script>
 
 <Scroll bind:progress --scrolly-story-width="1fr" --scrolly-viz-width="2.5fr">
 
-  <!-- <div class="debug-progress">
-    {progress.toFixed(1)}
-  </div> -->
   <div class="story-steps">
 
-    <!-- ① Intro -->
     <section class="step">
-      <h2>How Running Volume Affects Pace</h2>
-      <p class="subtitle">
-        We tracked 100+ Strava athletes and split them into three tiers based on how often
-        they run each week — then followed every run they logged.
+      <p class="step-label">
+        <span class="step-pip"></span>Part 1 — Volume & Pace
       </p>
+      <h2>How running volume shapes your pace over time</h2>
       <p>
-        <span class="pill low">Low volume</span> runners average just <strong>1.5 runs/week</strong>.
-        <span class="pill mid">Mid volume</span> runners average <strong>2.5 runs/week</strong>.
-        <span class="pill high">High volume</span> runners average <strong>4.9 runs/week</strong>.
+        We tracked 100+ Strava athletes, splitting them into three tiers based on
+        weekly run frequency — then followed every run they logged.
       </p>
-      <p>Scroll to see how the different groups vary overtime</p>
+      <div class="tier-chips">
+        <div class="chip chip-low">
+          <span class="chip-label">Low</span>
+          <span class="chip-stat">~1.5 runs/week</span>
+        </div>
+        <div class="chip chip-mid">
+          <span class="chip-label">Mid</span>
+          <span class="chip-stat">~2.5 runs/week</span>
+        </div>
+        <div class="chip chip-high">
+          <span class="chip-label">High</span>
+          <span class="chip-stat">~4.9 runs/week</span>
+        </div>
+      </div>
+      <p class="scroll-cue">Scroll to see how the groups diverge over time →</p>
     </section>
 
-    <!-- ② How tiers are defined — overview charts animate in -->
     <section class="step">
       <h2>How the tiers are defined</h2>
       <p>
-        The splits are percentile-based. The <strong>bottom 33%</strong> contains runners who run a low amount
-        per week as the <strong>middle 34%</strong>, and the <strong>top
-        33%</strong> are run at higher amounts, depicted in the bell curve.
+        Splits are percentile-based. The <strong>bottom 33%</strong> runs the least,
+        the <strong>middle 34%</strong> is the core, and the <strong>top 33%</strong> run
+        most frequently.
       </p>
       <p>
-        The bell curve shows most runners cluster around <strong>2–3 runs/week</strong> within the middle 34%,. The tails are thin,
-        meaning moving from low to mid is achievable for most people with just one extra run per week to build that consistency.
-      </p>
-    </section>
-
-    <!-- ③ Low volume — overview fades out, main chart fades in -->
-    <section class="step">
-      <h2>Low Volume Runners (Bottom 33%)</h2>
-      <p>
-        At fewer than 1.8 runs/week, these athletes start with the slowest paces —
-        <strong>5.46–6.98 min/km</strong> — and slowly improve over time
-      </p>
-      <p>
-        The spike between <strong>runs 70-90</strong> suggests that newer or less consistent runners have more variability and
-        show less progress due to that inconsistency 
-      </p>
-    </section>
-
-    <!-- ④ Mid volume -->
-    <section class="step">
-      <h2>Mid Volume Runners (Middle 34%)</h2>
-      <p>
-        At 1.8–3.5 runs/week, the improvement curve steepens. The mid-volume pace range —
-        <strong>5.38–6.32 min/km</strong> — is noticeably tighter and faster than the low group,
-        and the gap keeps slowly widening the more runs they log.
-      </p>
-      <p>
-        Just adding one extra run per week relative to the low group drives a meaningful long-term
-        difference. This is where habit kicks in and improvements are more noticeable.
-      </p>
-    </section>
-
-    <!-- ⑤ High volume -->
-    <section class="step">
-      <h2>High Volume Runners (Top 33%)</h2>
-      <p>
-        Above 3.5 runs/week, improvement is fastest and most consistent. The high-volume band
-        sits at <strong>4.81–5.89 min/km</strong> and continues to compress over 500 runs as the
-        aerobic base deepens.
-      </p>
-      <p>
-        Frequency, and not any type of workout, is the main driver for pace improvement overtime between all groups
+        Most runners cluster around 2–3 runs/week — meaning moving from low to mid
+        requires just one extra run per week.
       </p>
     </section>
 
     <section class="step">
-      <h2>The gap IS REAL, but it is Closeable</h2>
+      <h2>Low volume</h2>
+      <p class="step-stat">Under 1.8 runs / week</p>
       <p>
-        Across all three groups the trend is similar in shape, only the level differs. The
-        high-volume band is roughly <strong>a full minute per kilometre faster</strong> than the
-        low-volume band at the same number of cumulative runs.
-      </p>
-      <p>
-        But moving from low to mid requires only <strong>one extra run per week</strong>. You
-        don't need elite training volume to see elite-relative gains, you just need to show up one more time per week
-        to see good improvements!!
+        These athletes start with the slowest paces — <strong>5.46–6.98 min/km</strong> —
+        and improve slowly. Spikes between runs 70–90 reflect the inconsistency that
+        comes with lower frequency.
       </p>
     </section>
 
-    <!-- ⑦ Calculator -->
     <section class="step">
-      <h2>Find Your Tier 😈</h2>
+      <h2>Mid volume</h2>
+      <p class="step-stat">1.8–3.5 runs / week</p>
       <p>
-        Enter your average runs per week and your current pace in the panel on the right.
-        You'll see which group you belong to and what it would take to move up.
+        The improvement curve steepens. The mid-volume pace range —
+        <strong>5.38–6.32 min/km</strong> — is noticeably tighter and faster than the
+        low group. Just one extra weekly run drives a meaningful long-term difference.
+      </p>
+    </section>
+
+    <section class="step">
+      <h2>High volume</h2>
+      <p class="step-stat">Above 3.5 runs / week</p>
+      <p>
+        Improvement is fastest and most consistent here. The high-volume band sits at
+        <strong>4.81–5.89 min/km</strong> and continues to compress over 500 runs as
+        the aerobic base deepens.
+      </p>
+    </section>
+
+    <section class="step">
+      <h2>The gap is real — but closeable</h2>
+      <p>
+        High-volume runners are roughly <strong>a full minute per km faster</strong> than
+        low-volume runners at the same number of cumulative runs.
+      </p>
+      <p>
+        But moving from low to mid requires only <strong>one extra run per week.</strong>
+        You don't need elite volume — just one more day.
+      </p>
+    </section>
+
+    <section class="step">
+      <h2>Find your tier</h2>
+      <p>
+        Enter your weekly run count and current pace in the panel on the right.
+        See which group you belong to and what it would take to move up.
       </p>
       <p class="hint">
-        You can also pick any athlete from the dropdown to trace their personal trajectory
-        against the group medians.
+        You can also pick any athlete from the dropdown to trace their personal
+        trajectory against the group medians.
       </p>
     </section>
 
@@ -284,26 +273,29 @@
 
   <div slot="viz" class="viz-panel">
 
-    <!-- ① Overview: bar chart + bell curve -->
     <div
-      class="abs-layer-summary"
+      class="abs-layer"
       style="opacity:{overviewOpacity}; pointer-events:{overviewInteractive ? 'auto' : 'none'};"
       aria-hidden={!overviewInteractive}
     >
       <VolumeOverview {progress} />
     </div>
 
-    <!-- ② Main PaceTrend chart -->
     <div
       class="abs-layer"
       style="opacity:{mainChartOpacity}; pointer-events:{mainChartInteractive ? 'auto' : 'none'};"
       aria-hidden={!mainChartInteractive}
     >
-      <h1>How Consistency Effects Pace Overtime</h1>
+      <div class="chart-header">
+        <p class="chart-eyebrow">
+          <span class="eyebrow-pip"></span>Pace improvement over time
+        </p>
+        <h3>How consistency affects pace</h3>
+      </div>
 
       <div class="controls">
         <div class="control-row">
-          <span>Runs 1–<strong>{Math.min(450, maxRuns)}</strong></span>
+          <span class="control-label">Runs 1–<strong>{Math.min(450, maxRuns)}</strong></span>
           <input
             type="range" min="10" max="450" step="10"
             value={Math.min(450, maxRuns)} on:input={setMaxRuns}
@@ -314,19 +306,13 @@
             class="mode-toggle"
             class:manual={manualMode}
             on:click={toggleMode}
-            title={manualMode ? "Switch to scroll-driven" : "Switch to manual control"}
-          >
-            {manualMode ? "⟳ Auto" : "⊟ Manual"}
-          </button>
+          >{manualMode ? "⟳ Auto" : "⊟ Manual"}</button>
         </div>
 
         <div class="control-row">
-          <span class="spotlight">
-            Spotlight: {effectiveSelectedAthlete ? `#${effectiveSelectedAthlete}` : "none"}
-            ({GROUP_LABEL[spotlightGroup]}
-            {#if inShowcasePhase && showcaseRunners.length}
-              · {showcaseIndex + 1}/{showcaseRunners.length}
-            {/if})
+          <span class="spotlight-label">
+            Spotlight:
+            <strong>{effectiveSelectedAthlete ? `#${effectiveSelectedAthlete}` : "none"}</strong>
           </span>
         </div>
 
@@ -345,59 +331,130 @@
         </div>
       </div>
 
-      <PaceTrend
-        data={activeData}
-        {individuals}
-        selectedAthlete={effectiveSelectedAthlete}
-      />
+      <PaceTrend data={activeData} {individuals} selectedAthlete={effectiveSelectedAthlete} />
     </div>
 
-    <!-- ③ Calculator — fully interactive, no wrapper interference -->
     {#if calcInteractive}
-      <div
-        class="abs-layer-calc"
-        style="opacity:{calcOpacity};"
-      >
+      <div class="abs-layer abs-layer--calc" style="opacity:{calcOpacity};">
         <PaceCalculator />
       </div>
     {/if}
-
   </div>
+
 </Scroll>
 
 <style>
-  h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; line-height: 1.3; }
-  h2 { font-size: 20px; font-weight: 600; margin: 0 0 10px; }
+  .story-steps {
+    padding-right: 1.5rem;
+    min-width: 10rem;
+  }
 
-  .subtitle { color: #555; font-size: 15px; margin: 0 0 10px; line-height: 1.55; }
-  .hint     { font-size: 12px; color: #999; margin-top: 8px; line-height: 1.5; font-style: italic; }
-
-  .pill      { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 13px; font-weight: 600; vertical-align: middle; }
-  .pill.low  { background: rgba(78,144,217,0.12); color: #4e90d9; }
-  .pill.mid  { background: rgba(46,196,149,0.12); color: #2ec495; }
-  .pill.high { background: rgba(240,90,90,0.12);  color: #f05a5a; }
-
-  /* story column */
-  .story-steps { padding-right: 1.2rem; min-width: 10rem; }
   .step {
     min-height: 80vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     max-width: 52rem;
+    gap: 0.75rem;
   }
-  .step p { line-height: 1.65; margin-bottom: 0.75rem; }
-  .step p:last-child { margin-bottom: 0; }
 
-  /* viz panel — sticky, occupies the full height of the viewport */
+  .step p {
+    line-height: 1.65;
+    margin: 0;
+    font-size: clamp(0.9rem, 1.5vw, 1.02rem);
+    color: #3a3428;
+  }
+
+  .step strong {
+    color: #1a1a18;
+    font-weight: 500;
+  }
+
+  .step-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9a8e7a !important;
+  }
+
+  .step-pip {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #b5a882;
+  }
+
+  h2 {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+    font-weight: 400;
+    line-height: 1.25;
+    margin: 0;
+    color: #1a1a18;
+  }
+
+  .step-stat {
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    color: #7a6e5c !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .scroll-cue {
+    font-size: 0.82rem !important;
+    color: #9a9080 !important;
+    font-style: italic;
+  }
+
+  .hint {
+    font-size: 0.82rem !important;
+    color: #9a9080 !important;
+    font-style: italic;
+  }
+
+  .tier-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid;
+    gap: 2px;
+  }
+
+  .chip-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .chip-stat {
+    font-size: 11px;
+    opacity: 0.75;
+  }
+
+  .chip-low  { background: rgba(78,144,217,0.08);  border-color: rgba(78,144,217,0.25);  color: #3a6fa8; }
+  .chip-mid  { background: rgba(46,196,149,0.08);  border-color: rgba(46,196,149,0.25);  color: #1a8f64; }
+  .chip-high { background: rgba(240,90,90,0.08);   border-color: rgba(240,90,90,0.25);   color: #c04040; }
+
   .viz-panel {
     position: relative;
-    /* tall enough so absolute children don't clip */
     min-height: 80vh;
-    margin-top: 4rem;
+    margin-top: 3rem;
   }
 
-  /* all layers share the same origin; opacity handles visibility */
   .abs-layer {
     position: absolute;
     top: 0;
@@ -406,42 +463,124 @@
     transition: opacity 0.5s ease;
   }
 
-  .abs-layer-summary {
-    position: absolute;
-    margin-top: 150px;
-    top: 0;
-    left: 0;
-    width: 100%;
-    transition: opacity 0.5s ease;
-  }
-  .abs-layer-calc {
-    position: absolute;
-    top: 0;
-    margin-top: 200px;
-    left: 0;
-    width: 100%;
-    transition: opacity 0.5s ease;
+  .abs-layer--calc {
+    margin-top: 180px;
   }
 
-  /* controls */
-  .controls    { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }
-  .control-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-  .control-row input[type="range"] { flex: 0 0 200px; }
-  .control-row input[type="range"]:disabled { opacity: 0.5; }
-  .spotlight   { color: #495057; font-weight: 600; }
-  select       { font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; max-width: 300px; }
-  .clear-btn   { background: none; border: none; color: #aaa; cursor: pointer; font-size: 12px; }
-  .debug-progress {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: black;
-  color: white;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  z-index: 9999;
-  opacity: 0.8;
-  font-family: monospace;
-}
+  .chart-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .chart-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9a8e7a;
+    margin: 0 0 0.4rem;
+  }
+
+  .eyebrow-pip {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #b5a882;
+  }
+
+  h3 {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    font-weight: 400;
+    margin: 0;
+    color: #1a1a18;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0.75rem 0 1rem;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: #5a5248;
+  }
+
+  .control-label { min-width: 96px; }
+
+  .control-row input[type="range"] {
+    flex: 0 0 180px;
+    accent-color: #3a5c38;
+  }
+
+  .control-row input[type="range"]:disabled { opacity: 0.4; }
+  .active-slider { accent-color: #e05050 !important; }
+
+  .spotlight-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #5a5248;
+  }
+
+  .group-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .group-badge--low  { background: rgba(78,144,217,0.1);  color: #3a6fa8; }
+  .group-badge--mid  { background: rgba(46,196,149,0.1);  color: #1a8f64; }
+  .group-badge--high { background: rgba(240,90,90,0.1);   color: #c04040; }
+
+  select {
+    font-size: 12.5px;
+    padding: 4px 8px;
+    border-radius: 7px;
+    border: 1px solid #d4ccbc;
+    background: #faf8f4;
+    color: #3a3428;
+    max-width: 280px;
+    cursor: pointer;
+  }
+
+  .mode-toggle {
+    padding: 3px 10px;
+    font-size: 11.5px;
+    border-radius: 6px;
+    border: 1px solid #d4ccbc;
+    background: #faf8f4;
+    color: #5a5248;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .mode-toggle:hover { background: #f0ece4; }
+  .mode-toggle.manual {
+    background: #2c3a2a;
+    color: #d4e8d0;
+    border-color: #2c3a2a;
+    font-weight: 500;
+  }
+
+  .clear-btn {
+    background: none;
+    border: none;
+    color: #b5ad9e;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0 4px;
+  }
 </style>
